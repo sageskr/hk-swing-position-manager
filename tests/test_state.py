@@ -26,6 +26,29 @@ class PositionStateTests(unittest.TestCase):
         self.assertEqual(state.profit_reserve, 650)
         self.assertEqual(state.audit_trail[-1]["source"], "manual")
 
+    def test_holding_valuation_and_unrealized_profit(self) -> None:
+        state = self.make_state()
+        state.update_holding(
+            average_cost=450,
+            current_price="478.80",
+            valuation_as_of="2026-08-07T16:08:00+08:00",
+            valuation_source="test",
+            valuation_status="user_provided",
+            reason="test valuation",
+        )
+        self.assertEqual(state.total_cost, 155250)
+        self.assertEqual(state.market_value, 165186)
+        self.assertEqual(state.unrealized_profit_loss, 9936)
+        self.assertEqual(state.valuation_status, "user_provided")
+        self.assertEqual(state.audit_trail[-1]["action"], "manual_holding_update")
+
+    def test_holding_update_can_derive_average_cost_from_total_cost(self) -> None:
+        state = self.make_state()
+        state.update_holding(total_cost=155250, current_price=450, reason="test cost")
+        self.assertEqual(state.average_cost, 450)
+        self.assertEqual(state.market_value, 155250)
+        self.assertEqual(state.unrealized_profit_loss, 0)
+
     def test_state_round_trip_persistence(self) -> None:
         state = self.make_state()
         state.apply_reserve_adjustment("310.50", "test")

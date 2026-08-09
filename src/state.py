@@ -35,6 +35,13 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def optional_money(value: Any) -> Decimal | None:
+    return None if value is None else money(value)
+
+
+_UNSET = object()
+
+
 @dataclass
 class PositionState:
     """State that survives subsequent analyses and ledger updates."""
@@ -54,6 +61,14 @@ class PositionState:
     profit_reserve_adjustments: list[dict[str, Any]] = field(default_factory=list)
     audit_trail: list[dict[str, Any]] = field(default_factory=list)
     last_updated: str | None = None
+    average_cost: Decimal | None = None
+    total_cost: Decimal | None = None
+    current_price: Decimal | None = None
+    market_value: Decimal | None = None
+    unrealized_profit_loss: Decimal | None = None
+    valuation_as_of: str | None = None
+    valuation_source: str | None = None
+    valuation_status: str = "unavailable"
 
     def __post_init__(self) -> None:
         if self.current_swing_shares is None:
@@ -65,6 +80,12 @@ class PositionState:
         self.cumulative_net_profit = money(self.cumulative_net_profit)
         self.profit_reserve = money(self.profit_reserve)
         self.opening_profit_reserve = money(self.opening_profit_reserve)
+        self.average_cost = optional_money(self.average_cost)
+        self.total_cost = optional_money(self.total_cost)
+        self.current_price = optional_money(self.current_price)
+        self.market_value = optional_money(self.market_value)
+        self.unrealized_profit_loss = optional_money(self.unrealized_profit_loss)
+        self.recalculate_valuation()
         self.validate()
 
     def validate(self) -> None:
@@ -92,6 +113,22 @@ class PositionState:
             raise StateValidationError("profit_reserve cannot be negative")
         if self.opening_profit_reserve < 0:
             raise StateValidationError("opening_profit_reserve cannot be negative")
+
+    def recalculate_valuation(self) -> None:
+        """Recalculate holding value and unrealized P/L when inputs are available."""
+
+        if self.total_cost is None and self.average_cost is not None:
+            self.total_cost = self.average_cost * self.total_shares
+        elif self.average_cost is None and self.total_cost is not None and self.total_shares:
+            self.average_cost = self.total_cost / self.total_shares
+        if self.current_price is not None:
+            self.market_value = self.current_price * self.total_shares
+        else:
+            self.market_value = None
+        if self.market_value is not None and self.total_cost is not None:
+            self.unrealized_profit_loss = self.market_value - self.total_cost
+        else:
+            self.unrealized_profit_loss = None
 
     @property
     def core_protected(self) -> bool:
@@ -136,6 +173,75 @@ class PositionState:
         )
         return adjustment
 
+    def update_holding(
+        self,
+        *,
+        total_shares: Any = _UNSET,
+        core_shares: Any = _UNSET,
+        current_swing_shares: Any = _UNSET,
+        average_cost: Any = _UNSET,
+        total_cost: Any = _UNSET,
+        current_price: Any = _UNSET,
+        valuation_as_of: str | None = None,
+        valuation_source: str = "manual",
+        valuation_status: str = "user_provided",
+        reason: str = "Updated from investor-provided holding data",
+    ) -> None:
+        """Update holding/valuation inputs and recalculate derived amounts.
+
+        This is the intended entry point for future Skill-driven state updates.
+        It records an audit event and never places an order.
+        """
+
+        before = {
+            "total_shares": self.total_shares,
+            "core_shares": self.core_shares,
+            "current_swing_shares": self.current_swing_shares,
+            "average_cost": None if self.average_cost is None else str(self.average_cost),
+            "total_cost": None if self.total_cost is None else str(self.total_cost),
+            "current_price": None if self.current_price is None else str(self.current_price),
+            "market_value": None if self.market_value is None else str(self.market_value),
+            "unrealized_profit_loss": (
+                None if self.unrealized_profit_loss is None else str(self.unrealized_profit_loss)
+            ),
+        }
+        if total_shares is not _UNSET:
+            self.total_shares = int(total_shares)
+        if core_shares is not _UNSET:
+            self.core_shares = int(core_shares)
+        if current_swing_shares is not _UNSET:
+            self.current_swing_shares = int(current_swing_shares)
+        if average_cost is not _UNSET:
+            self.average_cost = optional_money(average_cost)
+            if total_cost is _UNSET:
+                self.total_cost = None
+        if total_cost is not _UNSET:
+            self.total_cost = optional_money(total_cost)
+            if average_cost is _UNSET:
+                self.average_cost = None
+        if current_price is not _UNSET:
+            self.current_price = optional_money(current_price)
+        if total_shares is not _UNSET or core_shares is not _UNSET or current_swing_shares is not _UNSET:
+            self.unallocated_shares = self.total_shares - self.core_shares - self.current_swing_shares
+        if valuation_as_of is not None:
+            self.valuation_as_of = valuation_as_of
+        elif any(value is not _UNSET for value in (average_cost, total_cost, current_price)):
+            self.valuation_as_of = utc_now()
+        if any(value is not _UNSET for value in (average_cost, total_cost, current_price)):
+            self.valuation_source = valuation_source
+            self.valuation_status = valuation_status
+        self.recalculate_valuation()
+        self.validate()
+        self.record_audit("manual_holding_update", reason=reason, before=before, after={
+            "average_cost": None if self.average_cost is None else str(self.average_cost),
+            "total_cost": None if self.total_cost is None else str(self.total_cost),
+            "current_price": None if self.current_price is None else str(self.current_price),
+            "market_value": None if self.market_value is None else str(self.market_value),
+            "unrealized_profit_loss": (
+                None if self.unrealized_profit_loss is None else str(self.unrealized_profit_loss)
+            ),
+        })
+
     def add_profit_generated_shares(self, shares: int, amount_used: Any) -> None:
         """Add whole shares purchased only from Profit Reserve."""
 
@@ -144,10 +250,16 @@ class PositionState:
         amount = money(amount_used)
         if amount <= 0 or amount > self.profit_reserve:
             raise StateValidationError("reinvestment amount exceeds profit_reserve")
+        previous_total = self.total_shares
+        if self.total_cost is None and self.average_cost is not None:
+            self.total_cost = self.average_cost * previous_total
         self.current_swing_shares += shares
         self.total_shares += shares
         self.profit_generated_shares += shares
         self.profit_reserve -= amount
+        if self.total_cost is not None:
+            self.total_cost += amount
+        self.recalculate_valuation()
         self.last_updated = utc_now()
         self.validate()
 
@@ -169,6 +281,16 @@ class PositionState:
             "profit_reserve_adjustments": self.profit_reserve_adjustments,
             "audit_trail": self.audit_trail,
             "last_updated": self.last_updated,
+            "average_cost": None if self.average_cost is None else str(self.average_cost),
+            "total_cost": None if self.total_cost is None else str(self.total_cost),
+            "current_price": None if self.current_price is None else str(self.current_price),
+            "market_value": None if self.market_value is None else str(self.market_value),
+            "unrealized_profit_loss": (
+                None if self.unrealized_profit_loss is None else str(self.unrealized_profit_loss)
+            ),
+            "valuation_as_of": self.valuation_as_of,
+            "valuation_source": self.valuation_source,
+            "valuation_status": self.valuation_status,
         }
 
     @classmethod
@@ -202,6 +324,17 @@ class PositionState:
             ],
             audit_trail=[dict(item) for item in raw.get("audit_trail", [])],
             last_updated=raw.get("last_updated"),
+            average_cost=money(raw["average_cost"]) if raw.get("average_cost") is not None else None,
+            total_cost=money(raw["total_cost"]) if raw.get("total_cost") is not None else None,
+            current_price=money(raw["current_price"]) if raw.get("current_price") is not None else None,
+            market_value=money(raw["market_value"]) if raw.get("market_value") is not None else None,
+            unrealized_profit_loss=(
+                money(raw["unrealized_profit_loss"])
+                if raw.get("unrealized_profit_loss") is not None else None
+            ),
+            valuation_as_of=raw.get("valuation_as_of"),
+            valuation_source=raw.get("valuation_source"),
+            valuation_status=str(raw.get("valuation_status", "unavailable")),
         )
 
     def save(self, path: str | Path) -> None:

@@ -27,6 +27,11 @@ properties:
       current_swing_shares: {type: integer, minimum: 0}
       profit_generated_shares: {type: integer, minimum: 0}
       profit_reserve: {type: [number, "null"], minimum: 0}
+      total_cost: {type: [number, "null"], minimum: 0}
+      current_price: {type: [number, "null"], minimum: 0}
+      valuation_as_of: {type: [string, "null"], format: date-time}
+      valuation_source: {type: [string, "null"]}
+      valuation_status: {type: string, enum: [verified, user_provided, estimated, unavailable]}
   capital:
     type: object
     properties:

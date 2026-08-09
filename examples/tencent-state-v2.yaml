@@ -15,3 +15,11 @@ state:
   profit_reserve_adjustments: []
   audit_trail: []
   last_updated: null
+  average_cost: null
+  total_cost: null
+  current_price: null
+  market_value: null
+  unrealized_profit_loss: null
+  valuation_as_of: null
+  valuation_source: null
+  valuation_status: unavailable

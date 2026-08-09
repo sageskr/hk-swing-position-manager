@@ -13,6 +13,11 @@ required:
   - transactions
   - profit_reserve_adjustments
   - audit_trail
+  - average_cost
+  - total_cost
+  - current_price
+  - market_value
+  - unrealized_profit_loss
 properties:
   ticker: {type: string, minLength: 1}
   total_shares: {type: integer, minimum: 0}
@@ -29,6 +34,14 @@ properties:
   profit_reserve_adjustments: {type: array, items: {$ref: "#/$defs/reserve_adjustment"}}
   audit_trail: {type: array, items: {type: object}}
   last_updated: {type: [string, "null"], format: date-time}
+  average_cost: {type: [string, "null"]}
+  total_cost: {type: [string, "null"]}
+  current_price: {type: [string, "null"]}
+  market_value: {type: [string, "null"]}
+  unrealized_profit_loss: {type: [string, "null"]}
+  valuation_as_of: {type: [string, "null"], format: date-time}
+  valuation_source: {type: [string, "null"]}
+  valuation_status: {type: string, enum: [verified, user_provided, estimated, unavailable]}
 $defs:
   reserve_adjustment:
     type: object

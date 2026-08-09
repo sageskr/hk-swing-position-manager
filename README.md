@@ -84,6 +84,36 @@ python -m pip install -e ".[dev]"
 
 Sell Recommendation Ladder 和 Buy Recommendation Ladder 只表示价格区域与数量建议，不代表订单，也不代表已经成交。项目不包含券商 API、直接卖出、直接买入或自动下单接口；投资人需要自行判断、下单和记录实际成交结果。Profit Ledger 的实际成交调整只接受投资人提供的成交数据，不会替投资人执行交易。
 
+## 结论优先的报告格式
+
+分析完成后，报告先给出 3–6 行结论，再展示市场分析和原因：
+
+结论只能选择一个动作，购入和售出不能同时出现：
+
+```text
+Action: BUY
+建议购入：8 股，交易金额 HK$3,600，预计手续费 HK$18
+本次交易后预期净收益/亏损：HK$120
+```
+
+或者：
+
+```text
+Action: SELL
+建议售出：8 股，交易金额 HK$3,600，预计手续费 HK$18
+本次交易后预期收益/亏损：HK$120
+```
+
+如果没有明确交易机会：
+
+```text
+Action: HOLD / WAIT
+不建议购入或售出
+本次交易后预期收益/亏损：不适用或无法计算
+```
+
+如果缺少可靠价格、手续费或持仓成本，必须显示“无法计算”，不能填入猜测值。BUY、SELL、HOLD、WAIT 只能选择一个；所有 BUY/SELL 都是建议，投资人自行决定，系统不会提交订单。
+
 ## 当前如何运行
 
 当前已提供 State 和 Profit Ledger 的 Python API，但尚无实时分析 CLI。可以先运行测试：
@@ -106,6 +136,34 @@ python3 -m unittest discover -s tests -v
 python -m hk_swing_position_manager analyze --input examples/tencent-0700.yaml
 python -m hk_swing_position_manager backtest --input examples/tencent-0700.yaml --data data/0700.HK.csv
 ```
+
+## 持股成本、市值与未实现盈亏
+
+`PositionState` 现在可以保存并更新：
+
+```text
+average_cost
+total_cost
+current_price
+market_value = current_price × total_shares
+unrealized_profit_loss = market_value - total_cost
+```
+
+如果缺少平均成本或当前价格，市值和未实现盈亏会显示为“无法计算”，不会使用虚构数据。用户后续可以通过 Skill 更新本地 State，例如：
+
+```python
+state.update_holding(
+    average_cost=450,
+    current_price=478.80,
+    valuation_as_of="2026-08-07T16:08:00+08:00",
+    valuation_source="Yahoo Finance",
+    valuation_status="verified",
+    reason="Updated from investor-provided holding statement",
+)
+state.save("state/0700.HK.json")
+```
+
+`state/*.json` 已加入 `.gitignore`，持仓成本、市值和收益状态只保存在本地，不会上传到仓库。
 
 ## V2 State 与 Profit Ledger 使用方式
 
@@ -140,7 +198,7 @@ ProfitLedger.reinvest_profit(
 state.save("state/0700.HK.json")
 ```
 
-用户提供实际成交价、费用或净利润时使用 `ProfitLedger.adjust_transaction`；直接修改 Reserve 使用 `state.apply_reserve_adjustment`。两种操作都会保留 Audit Trail，不会删除历史交易。
+用户提供实际成交价、费用或净利润时使用 `ProfitLedger.adjust_transaction`；直接修改 Reserve 使用 `state.apply_reserve_adjustment`；更新持仓成本、市值或股数使用 `state.update_holding`。这些操作都会保留 Audit Trail，不会删除历史交易。
 
 ## 如何输入股票与持仓
 

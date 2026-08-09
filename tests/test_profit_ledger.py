@@ -55,6 +55,7 @@ class ProfitLedgerTests(unittest.TestCase):
 
     def test_reinvestment_adds_only_whole_swing_shares(self) -> None:
         state = self.make_state()
+        state.update_holding(average_cost=450, current_price=450, reason="test cost basis")
         ProfitLedger.record_trade(
             state,
             transaction_id="trade-1",
@@ -78,6 +79,7 @@ class ProfitLedgerTests(unittest.TestCase):
         self.assertEqual(state.current_swing_shares, 46)
         self.assertEqual(state.profit_generated_shares, 1)
         self.assertEqual(state.total_shares, 346)
+        self.assertEqual(state.total_cost, 155555)
         self.assertEqual(state.profit_reserve, 5)
 
     def test_breakdown_blocks_automatic_reinvestment(self) -> None:

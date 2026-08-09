@@ -13,6 +13,7 @@
 - Buy/Sell Recommendation Ladder
 - Transaction Cost Estimate
 - Net Profit Simulation
+- Holding Cost / Market Value / Unrealized Profit or Loss
 - Risk Warning
 
 本 Skill 永久只提供买入、卖出和持有建议，不提供任何直接卖出、直接买入或自动下单功能。投资人自行决定是否执行建议，并自行承担交易责任。
@@ -36,7 +37,7 @@
 2. 获取并标记数据来源、时间戳和数据新鲜度；数据不可验证时停止生成确定性价格计划。
 3. 综合 OHLC、Volume、近期高低点、摆动高低点、均线、价格结构、动量和成交量行为判断 Market Regime。
 4. 识别并解释 Support Zones 与 Resistance Zones，输出来源、强度和置信度。
-5. 计算 Core/Swing Position，先校验持仓不变量，再恢复 State 和 Profit Ledger。
+5. 计算 Core/Swing Position，先校验持仓不变量，再恢复 State 和 Profit Ledger；同时读取持股成本、当前价格、市值和未实现盈亏。
 6. 对每轮已完成交易计算 commission、platform fee、stamp duty、trading fee、transaction levy、settlement fee、GST、滑点和其他适用费用，并更新 Profit Reserve。
 7. 只有在 Buy Zone、Trend Filter、Support Breakdown 和风险限制都允许时，才评估 Profit Reinvestment；Reserve 达标不等于必须买入。
 8. 用户提供实际成交数据或人工 Reserve 调整时，重新计算并写入 Audit Trail。
@@ -46,21 +47,64 @@
 12. 生成 Bull、Base、Bear 三种情景，每个情景必须包含 trigger、expected behavior、recommended action 和 risk。
 13. 按固定顺序输出报告，并在最后给出简洁的 `WAIT / BUY / SELL / HOLD` 建议；其中 BUY/SELL 仅表示建议，不代表已成交。
 
+## Conclusion-first output
+
+分析完成后必须先输出简短结论，再输出分析和原因。结论控制在 3–6 行，优先回答：
+
+结论动作必须互斥，只能选择一个：`BUY`、`SELL`、`HOLD` 或 `WAIT`。
+
+```text
+Action: BUY
+建议购入：XX 股，交易金额 HK$XX，预计手续费 HK$XX
+本次交易后预期净收益/亏损：HK$XX
+```
+
+```text
+Action: SELL
+建议售出：XX 股，交易金额 HK$XX，预计手续费 HK$XX
+本次交易后预期净收益/亏损：HK$XX
+```
+
+```text
+Action: HOLD / WAIT
+不建议购入或售出
+本次交易后预期净收益/亏损：不适用或无法计算
+```
+
+当 `Action: BUY` 时禁止输出售出建议；当 `Action: SELL` 时禁止输出购入建议。
+
+不适用的操作不得输出数量、交易金额或手续费，必须明确写“不建议”或“无法计算”。结论中的 BUY/SELL 仅是建议，必须注明 `investor_decision_required: true` 和 `order_submitted: false`。
+
 ## Output order
 
-1. Market Summary
-2. Trend
-3. Support / Resistance
-4. Core / Swing Position
-5. Sell Recommendation Ladder
-6. Buy Recommendation Ladder
-7. Transaction Cost
-8. Net Profit
-9. Share Growth
-10. Profit Status
-11. Bull / Base / Bear
-12. Risk Warning
-13. Final Recommendation
+1. Conclusion
+2. Market Summary
+3. Trend
+4. Support / Resistance
+5. Core / Swing Position
+6. Sell Recommendation Ladder
+7. Buy Recommendation Ladder
+8. Transaction Cost
+9. Net Profit
+10. Share Growth
+11. Profit Status
+12. Bull / Base / Bear
+13. Risk Warning
+14. Final Recommendation
+
+## Holding valuation and State updates
+
+State 必须记录并可由后续 Skill 更新：
+
+```text
+average_cost
+total_cost
+current_price
+market_value = current_price × total_shares
+unrealized_profit_loss = market_value - total_cost
+```
+
+缺少平均成本或当前价格时，相关金额必须显示为“无法计算”，不得填入估算值。用户提供新的持仓成本、当前价格或持仓数量后，Skill 必须更新本地 State，并留下 Audit Trail；更新仍然不会提交任何订单。
 
 ## Data and fee policy
 

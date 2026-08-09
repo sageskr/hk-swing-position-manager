@@ -116,6 +116,13 @@ class ProfitLedger:
         cumulative = Decimal("0")
         generated = 0
         current_swing = state.initial_swing_shares
+        previous_total_shares = state.total_shares
+        previous_total_cost = state.total_cost
+        previous_reinvestment_total = sum(
+            (money(item.get("reinvestment", {}).get("amount_used", 0))
+             for item in state.transactions),
+            Decimal("0"),
+        )
         recalculated = deepcopy(state.transactions)
 
         def apply_reserve_adjustments(after_transaction_id: str | None) -> None:
@@ -166,6 +173,23 @@ class ProfitLedger:
         state.profit_generated_shares = generated
         state.current_swing_shares = current_swing
         state.total_shares = state.core_shares + current_swing + state.unallocated_shares
+        new_reinvestment_total = sum(
+            (money(item.get("reinvestment", {}).get("amount_used", 0))
+             for item in recalculated),
+            Decimal("0"),
+        )
+        reinvestment_delta = new_reinvestment_total - previous_reinvestment_total
+        if previous_total_cost is not None:
+            state.total_cost = previous_total_cost + reinvestment_delta
+            state.average_cost = (
+                state.total_cost / state.total_shares if state.total_shares else None
+            )
+        elif state.average_cost is not None:
+            state.total_cost = state.average_cost * previous_total_shares + reinvestment_delta
+            state.average_cost = (
+                state.total_cost / state.total_shares if state.total_shares else None
+            )
+        state.recalculate_valuation()
         state.profit_reserve = reserve
         state.last_updated = utc_now()
         state.validate()
@@ -233,11 +257,19 @@ class ProfitLedger:
 
         if target is not None:
             previous = target.get("reinvestment", {})
+            previous_total_cost = state.total_cost
+            previous_average_cost = state.average_cost
             target["reinvestment"] = reinvestment
+            if state.total_cost is None and state.average_cost is not None:
+                state.total_cost = state.average_cost * state.total_shares
+            if state.total_cost is not None:
+                state.total_cost += amount_used
             try:
                 ProfitLedger.recalculate_state(state)
             except Exception:
                 target["reinvestment"] = previous
+                state.total_cost = previous_total_cost
+                state.average_cost = previous_average_cost
                 ProfitLedger.recalculate_state(state)
                 raise
         else:
