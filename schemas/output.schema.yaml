@@ -1,0 +1,123 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: HK Swing Position Manager Output
+type: object
+required:
+  - market_summary
+  - trend
+  - support_resistance
+  - position
+  - sell_ladder
+  - buy_ladder
+  - transaction_cost
+  - net_profit
+  - scenarios
+  - risk_warnings
+  - final_execution_plan
+properties:
+  metadata:
+    type: object
+    properties:
+      generated_at: {type: string, format: date-time}
+      data_source: {type: string}
+      data_as_of: {type: string, format: date-time}
+      data_status: {type: string, enum: [verified, user_provided, estimated, unavailable]}
+  market_summary:
+    type: object
+    required: [ticker, market, currency, regime]
+    properties:
+      ticker: {type: string}
+      market: {type: string, const: HK}
+      currency: {type: string, const: HKD}
+      regime: {type: string, enum: [bullish, sideways, bearish, transitional]}
+      summary: {type: string}
+      evidence: {type: array, items: {type: string}}
+  trend:
+    type: object
+    properties:
+      regime: {type: string, enum: [bullish, sideways, bearish, transitional]}
+      confidence: {type: string, enum: [low, medium, high]}
+      indicators: {type: array, items: {type: object}}
+  support_resistance:
+    type: object
+    properties:
+      support_zones: {type: array, items: {$ref: "#/$defs/zone"}}
+      resistance_zones: {type: array, items: {$ref: "#/$defs/zone"}}
+  position:
+    type: object
+    required: [initial_swing_shares, sold_shares, repurchased_shares, ending_swing_shares]
+    properties:
+      total_shares: {type: integer, minimum: 0}
+      core_shares: {type: integer, minimum: 0}
+      initial_swing_shares: {type: integer, minimum: 0}
+      sold_shares: {type: integer, minimum: 0}
+      repurchased_shares: {type: integer, minimum: 0}
+      ending_swing_shares: {type: integer, minimum: 0}
+      additional_shares_gained_or_lost: {type: integer}
+      ending_cash: {type: number}
+  sell_ladder: {type: array, minItems: 0, maxItems: 4, items: {$ref: "#/$defs/ladder_level"}}
+  buy_ladder: {type: array, minItems: 0, maxItems: 4, items: {$ref: "#/$defs/ladder_level"}}
+  transaction_cost:
+    type: object
+    properties:
+      label: {type: string, enum: [Exact Transaction Cost, Estimated Transaction Cost, Unavailable Transaction Cost]}
+      status: {type: string, enum: [verified, user_provided, estimated, unavailable]}
+      total: {type: number, minimum: 0}
+      components: {type: object}
+      slippage: {type: number, minimum: 0}
+  net_profit:
+    type: object
+    properties:
+      gross_profit: {type: number}
+      transaction_cost: {type: number, minimum: 0}
+      net_profit: {type: number}
+      cost_ratio: {type: [number, "null"], minimum: 0}
+      minimum_effective_spread: {type: number, minimum: 0}
+      alert_level: {type: string, enum: [GREEN, YELLOW, RED, NOT_MEANINGFUL]}
+  share_growth:
+    type: object
+    properties:
+      initial_shares: {type: integer, minimum: 0}
+      ending_shares: {type: integer, minimum: 0}
+      gained_or_lost: {type: integer}
+  scenarios:
+    type: object
+    required: [bull, base, bear]
+    properties:
+      bull: {$ref: "#/$defs/scenario"}
+      base: {$ref: "#/$defs/scenario"}
+      bear: {$ref: "#/$defs/scenario"}
+  risk_warnings: {type: array, items: {type: string}}
+  final_execution_plan:
+    type: object
+    required: [action]
+    properties:
+      action: {type: string, enum: [WAIT, BUY, SELL, HOLD]}
+      summary: {type: string}
+      automatic_ordering: {type: boolean, const: false}
+$defs:
+  zone:
+    type: object
+    required: [lower, upper, strength, confidence, sources]
+    properties:
+      lower: {type: number}
+      upper: {type: number}
+      strength: {type: string, enum: [weak, medium, strong]}
+      confidence: {type: string, enum: [low, medium, high]}
+      sources: {type: array, items: {type: string}}
+  ladder_level:
+    type: object
+    required: [price, shares]
+    properties:
+      price: {type: number, exclusiveMinimum: 0}
+      shares: {type: integer, minimum: 0}
+      trigger: {type: string}
+      estimated_cost: {type: number, minimum: 0}
+      status: {type: string, enum: [planned, blocked, executed, unavailable]}
+  scenario:
+    type: object
+    required: [trigger, expected_market_behavior, recommended_action, risk]
+    properties:
+      trigger: {type: string}
+      expected_market_behavior: {type: string}
+      recommended_action: {type: string}
+      risk: {type: string}

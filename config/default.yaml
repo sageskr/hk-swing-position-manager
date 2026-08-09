@@ -1,0 +1,45 @@
+version: 1
+
+asset:
+  market: HK
+  currency: HKD
+
+strategy_config:
+  analysis_period_days: 180
+  swing_mode: hybrid
+  sell_mode: adaptive
+  buy_mode: progressive
+  reinvest_profit: true
+
+risk:
+  minimum_core_shares: 0
+  max_swing_position_ratio: 0.15
+  max_capital_drawdown: 0.10
+  max_single_transaction_ratio: 0.50
+  stop_buying_on_breakdown: true
+
+execution:
+  broker: moomoo
+  market: HK
+  min_trade_lot: 1
+  transaction_cost:
+    enabled: true
+    mode: moomoo_actual
+    status: unavailable
+    source: null
+    as_of: null
+  cost_alert:
+    enabled: true
+    thresholds:
+      warning_ratio: 0.30
+      danger_ratio: 0.50
+    minimum_net_profit: 100
+    minimum_profit_to_cost_ratio: 2.0
+  slippage:
+    enabled: true
+    mode: percentage
+    default_rate: 0.001
+
+metadata:
+  status: template
+  note: "费率和市场数据在实现阶段必须从可靠来源或用户输入加载。"

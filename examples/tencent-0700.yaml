@@ -1,0 +1,54 @@
+# Phase 1 input example: Tencent Holdings Ltd. (0700.HK)
+# 本文件只描述输入，不包含未经验证的价格、行情或收益结果。
+asset:
+  ticker: "0700.HK"
+  market: HK
+  currency: HKD
+
+position:
+  total_shares: 345
+  average_cost: null
+  core_shares: 300
+  swing_shares: 45
+
+capital:
+  available_cash: null
+  swing_capital_source: sale_proceeds
+
+strategy_config:
+  analysis_period_days: 180
+  swing_mode: hybrid
+  sell_mode: adaptive
+  buy_mode: progressive
+  reinvest_profit: true
+
+risk:
+  minimum_core_shares: 300
+  max_swing_position_ratio: 0.15
+  max_capital_drawdown: 0.10
+  max_single_transaction_ratio: 0.50
+  stop_buying_on_breakdown: true
+
+execution:
+  broker: moomoo
+  market: HK
+  min_trade_lot: 1
+  transaction_cost:
+    enabled: true
+    mode: moomoo_actual
+  cost_alert:
+    enabled: true
+    thresholds:
+      warning_ratio: 0.30
+      danger_ratio: 0.50
+    minimum_net_profit: 100
+    minimum_profit_to_cost_ratio: 2.0
+  slippage:
+    enabled: true
+    mode: percentage
+    default_rate: 0.001
+
+data:
+  historical_data_source: null
+  historical_data_as_of: null
+  data_status: unavailable

@@ -1,0 +1,77 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: HK Swing Position Manager Input
+type: object
+required:
+  - asset
+  - position
+properties:
+  asset:
+    type: object
+    required: [ticker, market, currency]
+    properties:
+      ticker: {type: string, minLength: 1, examples: ["0700.HK"]}
+      market: {type: string, const: HK}
+      currency: {type: string, const: HKD}
+  position:
+    type: object
+    required: [total_shares, core_shares, swing_shares]
+    properties:
+      total_shares: {type: integer, minimum: 0}
+      average_cost: {type: [number, "null"], minimum: 0}
+      core_shares: {type: integer, minimum: 0}
+      swing_shares: {type: integer, minimum: 0}
+  capital:
+    type: object
+    properties:
+      available_cash: {type: [number, "null"], minimum: 0}
+      swing_capital_source: {type: string, enum: [sale_proceeds, cash, mixed]}
+  strategy_config:
+    type: object
+    properties:
+      analysis_period_days: {type: integer, minimum: 1, default: 180}
+      swing_mode: {type: string, enum: [fixed, hybrid, adaptive], default: hybrid}
+      sell_mode: {type: string, enum: [fixed, adaptive], default: adaptive}
+      buy_mode: {type: string, enum: [progressive, fixed], default: progressive}
+      reinvest_profit: {type: boolean, default: true}
+  risk:
+    type: object
+    properties:
+      minimum_core_shares: {type: integer, minimum: 0}
+      max_swing_position_ratio: {type: number, minimum: 0, maximum: 1}
+      max_capital_drawdown: {type: number, minimum: 0, maximum: 1}
+      max_single_transaction_ratio: {type: number, minimum: 0, maximum: 1}
+      stop_buying_on_breakdown: {type: boolean}
+  execution:
+    type: object
+    properties:
+      broker: {type: string, const: moomoo}
+      market: {type: string, const: HK}
+      min_trade_lot: {type: integer, minimum: 1}
+      transaction_cost:
+        type: object
+        properties:
+          enabled: {type: boolean}
+          mode: {type: string, enum: [moomoo_actual, user_provided, estimate]}
+      cost_alert:
+        type: object
+        properties:
+          enabled: {type: boolean}
+          thresholds:
+            type: object
+            properties:
+              warning_ratio: {type: number, minimum: 0}
+              danger_ratio: {type: number, minimum: 0}
+          minimum_net_profit: {type: number}
+          minimum_profit_to_cost_ratio: {type: number, minimum: 0}
+      slippage:
+        type: object
+        properties:
+          enabled: {type: boolean}
+          mode: {type: string, enum: [percentage, absolute, actual]}
+          default_rate: {type: number, minimum: 0}
+  data:
+    type: object
+    properties:
+      historical_data_source: {type: string}
+      historical_data_as_of: {type: string, format: date-time}
+      data_status: {type: string, enum: [verified, user_provided, estimated, unavailable]}
