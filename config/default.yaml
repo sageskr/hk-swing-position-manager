@@ -15,8 +15,11 @@ risk:
   minimum_core_shares: 0
   max_swing_position_ratio: 0.15
   max_capital_drawdown: 0.10
-  max_single_transaction_ratio: 0.50
+  max_single_transaction_ratio:
+    buy: 0.40
+    sell: 0.50
   stop_buying_on_breakdown: true
+  profit_reinvestment_enabled: true
 
 execution:
   broker: moomoo
@@ -39,6 +42,11 @@ execution:
     enabled: true
     mode: percentage
     default_rate: 0.001
+
+state:
+  persistence: json
+  path: state/{ticker}.json
+  restore_on_analysis: true
 
 metadata:
   status: template

@@ -1,0 +1,17 @@
+# V2 state example; this is accounting data, not a market-data result.
+state:
+  ticker: "0700.HK"
+  total_shares: 345
+  core_shares: 300
+  initial_swing_shares: 45
+  current_swing_shares: 45
+  minimum_core_shares: 300
+  profit_generated_shares: 0
+  cumulative_net_profit: "0"
+  profit_reserve: "0"
+  opening_profit_reserve: "0"
+  unallocated_shares: 0
+  transactions: []
+  profit_reserve_adjustments: []
+  audit_trail: []
+  last_updated: null

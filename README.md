@@ -2,7 +2,7 @@
 
 港股持仓波段交易决策辅助 Skill。它帮助用户把已有持仓拆分为长期 Core Position 与可交易 Swing Position，在不减少长期底仓的前提下，模拟上涨分批卖出、下跌分批买回，并比较交易成本与净收益。
 
-> **重要：当前是 Phase 1。** 本阶段只完成项目架构、策略文档、Schema 和示例，尚未连接行情、尚未进行计算，也绝不会自动下单。所有结果在实现完成并经过测试前都不应视为投资建议。
+> **重要：当前已完成 Phase 1–3 的基础版本。** State、Profit Ledger、Profit Reserve 和人工调整已实现；行情、完整费用、阶梯、回测和经纪商集成仍未完成，也绝不会自动下单。所有结果在实现完成并经过测试前都不应视为投资建议。
 
 ## 项目是什么
 
@@ -33,10 +33,13 @@ hk-swing-position-manager/
 │   └── calculation.md
 ├── schemas/
 │   ├── input.schema.yaml            # 输入契约
-│   └── output.schema.yaml           # 输出契约
+│   ├── output.schema.yaml           # 输出契约
+│   ├── state.schema.yaml            # 持久化 State 契约
+│   └── profit-ledger.schema.yaml    # Profit Ledger 契约
 ├── examples/
-│   └── tencent-0700.yaml            # Tencent 0700.HK 输入示例
-├── src/                             # 后续 Python 实现（当前为占位）
+│   ├── tencent-0700.yaml            # Tencent 0700.HK 输入示例
+│   └── tencent-state-v2.yaml        # V2 State 示例
+├── src/                             # Python 实现
 │   ├── market_data.py
 │   ├── trend.py
 │   ├── support_resistance.py
@@ -44,11 +47,15 @@ hk-swing-position-manager/
 │   ├── ladder.py
 │   ├── transaction_cost.py
 │   ├── risk.py
-│   └── report.py
-└── tests/                           # 后续自动化测试（当前为占位）
+│   ├── report.py
+│   ├── state.py                     # State 持久化与审计
+│   └── profit_ledger.py             # 净利润、Reserve 与再投资
+└── tests/                           # 自动化测试
     ├── test_position.py
     ├── test_ladder.py
     ├── test_cost.py
+    ├── test_profit_ledger.py
+    ├── test_state.py
     └── test_risk.py
 ```
 
@@ -75,7 +82,13 @@ python -m pip install -e ".[dev]"
 
 ## 当前如何运行
 
-Phase 1 暂无可执行分析命令。可以先阅读：
+当前已提供 State 和 Profit Ledger 的 Python API，但尚无实时分析 CLI。可以先运行测试：
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+也可以先阅读：
 
 1. `SKILL.md`：运行边界与输出顺序。
 2. `references/`：策略、计算和风险定义。
@@ -89,6 +102,41 @@ Phase 1 暂无可执行分析命令。可以先阅读：
 python -m hk_swing_position_manager analyze --input examples/tencent-0700.yaml
 python -m hk_swing_position_manager backtest --input examples/tencent-0700.yaml --data data/0700.HK.csv
 ```
+
+## V2 State 与 Profit Ledger 使用方式
+
+State 以 JSON 保存，金额使用字符串保存以避免浮点精度损失。核心 API 位于 `src/state.py` 和 `src/profit_ledger.py`：
+
+```python
+from src.profit_ledger import ProfitLedger
+from src.state import PositionState
+
+state = PositionState("0700.HK", 345, 300, 45, minimum_core_shares=300)
+ProfitLedger.record_trade(
+    state,
+    transaction_id="trade-001",
+    sell_shares=10,
+    sell_price=500,
+    buy_shares=10,
+    buy_price=460,
+    transaction_cost=80,
+    slippage_cost=10,
+)
+
+# Reserve 达标不等于必须买入；必须明确提供 Buy Zone 和趋势许可。
+ProfitLedger.reinvest_profit(
+    state,
+    buy_price=300,
+    estimated_cost_per_share=5,
+    in_buy_zone=True,
+    trend_allows_buy=True,
+    support_breakdown=False,
+    max_shares=1,
+)
+state.save("state/0700.HK.json")
+```
+
+用户提供实际成交价、费用或净利润时使用 `ProfitLedger.adjust_transaction`；直接修改 Reserve 使用 `state.apply_reserve_adjustment`。两种操作都会保留 Audit Trail，不会删除历史交易。
 
 ## 如何输入股票与持仓
 
@@ -147,23 +195,33 @@ position:
 
 ## 开发阶段
 
-1. **Phase 1：** 项目结构、文档、Schema、示例和占位文件（当前）。
-2. **Phase 2：** Position 与 Ladder calculation。
-3. **Phase 3：** Transaction cost。
-4. **Phase 4：** Market analysis。
-5. **Phase 5：** Risk control。
-6. **Phase 6：** Backtest。
-7. **Phase 7：** Moomoo integration（仍禁止自动下单，除非另行确认）。
+1. **Phase 1：** 项目结构、文档、Schema、示例和占位文件（已完成）。
+2. **Phase 2：** Position State、Profit Generated Shares、Profit Reserve（已完成基础版本）。
+3. **Phase 3：** Profit Ledger、Profit Reinvestment、Manual Adjustment、Audit Trail（已完成基础版本）。
+4. **Phase 4：** Transaction cost、Moomoo Fee Model、Slippage、Cost Alert。
+5. **Phase 5：** Market analysis、Trend、Support、Resistance。
+6. **Phase 6：** Sell Ladder、Buy Ladder、Adaptive Sell、Progressive Buy。
+7. **Phase 7：** Risk control、Drawdown、Position Limits、Breakdown Protection。
+8. **Phase 8：** Backtest。
+9. **Phase 9：** Moomoo integration（仍禁止自动下单，除非另行确认）。
 
 每个阶段都必须运行测试、检查结果、更新 README，并明确报告尚未实现的功能。
+
+## V2 已实现功能
+
+- `PositionState`：Core/Swing 状态、Profit Reserve、累计净利润和 State JSON 持久化。
+- `ProfitLedger`：完成交易记录、Gross/Net Profit、Reserve 累积和实际成交人工调整。
+- Profit Reinvestment：仅在 Buy Zone、趋势允许、无 Support Breakdown 且通过风险限制时，使用 Reserve 购买整数股。
+- Audit Trail：人工修改 Profit Reserve 或实际交易数据时记录修改前后值、时间、原因和来源。
+- 原始 `swing_shares` 输入别名仍兼容；V2 推荐 `initial_swing_shares`。
 
 ## 当前未实现功能
 
 - 行情数据获取、数据校验与数据源适配
 - 趋势、动量、成交量和市场状态判定
 - 程序化支撑/阻力区域识别
-- Core/Swing 校验与仓位变化计算
-- 买卖阶梯和资金限制
+- 完整 Core/Swing 交易后的买卖阶梯和资金限制
+- Sell Ladder、Buy Ladder 和完整风险参数计算
 - Moomoo Singapore 最新费用加载与费用计算
 - 滑点、风险控制、情景分析与结构化报告
 - 回测、Buy & Hold 对比和 CLI

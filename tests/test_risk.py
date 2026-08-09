@@ -1,12 +1,11 @@
-"""Risk-control test plan placeholder.
-
-Future tests: bearish breakdown stops buying, max drawdown, single-transaction
-limit, Core protection, and Bull/Base/Bear scenario triggers.
-"""
-import pytest
-
-pytestmark = pytest.mark.skip(reason="Risk calculations are planned for Phase 5")
+import unittest
 
 
-def test_risk_phase_5_placeholder():
-    """Reserved for breakdown, drawdown and Core protection tests."""
+@unittest.skip("Full risk-control implementation remains planned for Phase 7")
+class RiskTests(unittest.TestCase):
+    def test_risk_placeholder(self) -> None:
+        pass
+
+
+if __name__ == "__main__":
+    unittest.main()

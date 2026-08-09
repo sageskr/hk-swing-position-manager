@@ -10,6 +10,7 @@ required:
   - buy_ladder
   - transaction_cost
   - net_profit
+  - profit_status
   - scenarios
   - risk_warnings
   - final_execution_plan
@@ -79,6 +80,31 @@ properties:
       initial_shares: {type: integer, minimum: 0}
       ending_shares: {type: integer, minimum: 0}
       gained_or_lost: {type: integer}
+  profit_status:
+    type: object
+    required:
+      - initial_swing_shares
+      - current_swing_shares
+      - cumulative_net_profit
+      - profit_reserve
+      - profit_generated_shares
+      - core_shares
+      - total_shares
+    properties:
+      initial_swing_shares: {type: integer, minimum: 0}
+      current_swing_shares: {type: integer, minimum: 0}
+      cumulative_net_profit: {type: number}
+      profit_reserve: {type: number, minimum: 0}
+      profit_generated_shares: {type: integer, minimum: 0}
+      core_shares: {type: integer, minimum: 0}
+      total_shares: {type: integer, minimum: 0}
+  profit_ledger:
+    type: object
+    properties:
+      cumulative_net_profit: {type: number}
+      profit_reserve: {type: number, minimum: 0}
+      profit_generated_shares: {type: integer, minimum: 0}
+      transactions: {type: array, items: {type: object}}
   scenarios:
     type: object
     required: [bull, base, bear]

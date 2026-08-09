@@ -14,12 +14,19 @@ properties:
       currency: {type: string, const: HKD}
   position:
     type: object
-    required: [total_shares, core_shares, swing_shares]
+    required: [total_shares, core_shares]
+    anyOf:
+      - required: [initial_swing_shares]
+      - required: [swing_shares]
     properties:
       total_shares: {type: integer, minimum: 0}
       average_cost: {type: [number, "null"], minimum: 0}
       core_shares: {type: integer, minimum: 0}
-      swing_shares: {type: integer, minimum: 0}
+      initial_swing_shares: {type: integer, minimum: 0}
+      swing_shares: {type: integer, minimum: 0, description: "Legacy alias for initial_swing_shares"}
+      current_swing_shares: {type: integer, minimum: 0}
+      profit_generated_shares: {type: integer, minimum: 0}
+      profit_reserve: {type: [number, "null"], minimum: 0}
   capital:
     type: object
     properties:
@@ -39,7 +46,14 @@ properties:
       minimum_core_shares: {type: integer, minimum: 0}
       max_swing_position_ratio: {type: number, minimum: 0, maximum: 1}
       max_capital_drawdown: {type: number, minimum: 0, maximum: 1}
-      max_single_transaction_ratio: {type: number, minimum: 0, maximum: 1}
+      max_single_transaction_ratio:
+        oneOf:
+          - {type: number, minimum: 0, maximum: 1}
+          - type: object
+            required: [buy, sell]
+            properties:
+              buy: {type: number, minimum: 0, maximum: 1}
+              sell: {type: number, minimum: 0, maximum: 1}
       stop_buying_on_breakdown: {type: boolean}
   execution:
     type: object

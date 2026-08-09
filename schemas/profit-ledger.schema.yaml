@@ -1,0 +1,57 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: HK Swing Position Manager Profit Ledger
+type: object
+required: [cumulative_net_profit, profit_reserve, profit_generated_shares, transactions]
+properties:
+  cumulative_net_profit: {type: string}
+  profit_reserve: {type: string}
+  profit_generated_shares: {type: integer, minimum: 0}
+  transactions:
+    type: array
+    items:
+      type: object
+      required:
+        - id
+        - ticker
+        - date
+        - sell
+        - buy
+        - gross_profit
+        - transaction_cost
+        - slippage_cost
+        - net_profit
+        - profit_source
+        - profit_reserve_before
+        - profit_reserve_after
+        - reinvestment
+      properties:
+        id: {type: string, minLength: 1}
+        ticker: {type: string, minLength: 1}
+        date: {type: string, format: date}
+        sell: {$ref: "#/$defs/leg"}
+        buy: {$ref: "#/$defs/leg"}
+        gross_profit: {type: string}
+        transaction_cost: {type: string}
+        slippage_cost: {type: string}
+        net_profit: {type: string}
+        profit_source: {type: string, enum: [actual, estimated, manual]}
+        profit_reserve_before: {type: string}
+        profit_reserve_after: {type: string}
+        remaining_profit_reserve: {type: string}
+        reinvestment: {$ref: "#/$defs/reinvestment"}
+$defs:
+  leg:
+    type: object
+    required: [shares, price]
+    properties:
+      shares: {type: integer, minimum: 1}
+      price: {type: string}
+  reinvestment:
+    type: object
+    required: [eligible, shares, amount_used]
+    properties:
+      eligible: {type: boolean}
+      shares: {type: integer, minimum: 0}
+      price_reference: {type: [string, "null"]}
+      amount_used: {type: string}
+      estimated_cost_per_share: {type: string}

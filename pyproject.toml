@@ -19,3 +19,15 @@ addopts = "-ra"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+py-modules = [
+  "market_data",
+  "trend",
+  "support_resistance",
+  "position",
+  "ladder",
+  "transaction_cost",
+  "risk",
+  "report",
+  "state",
+  "profit_ledger",
+]

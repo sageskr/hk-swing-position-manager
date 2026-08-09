@@ -1,0 +1,43 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: HK Swing Position Manager State
+type: object
+required:
+  - ticker
+  - total_shares
+  - core_shares
+  - initial_swing_shares
+  - current_swing_shares
+  - profit_generated_shares
+  - cumulative_net_profit
+  - profit_reserve
+  - transactions
+  - profit_reserve_adjustments
+  - audit_trail
+properties:
+  ticker: {type: string, minLength: 1}
+  total_shares: {type: integer, minimum: 0}
+  core_shares: {type: integer, minimum: 0}
+  initial_swing_shares: {type: integer, minimum: 0}
+  current_swing_shares: {type: integer, minimum: 0}
+  minimum_core_shares: {type: integer, minimum: 0}
+  profit_generated_shares: {type: integer, minimum: 0}
+  cumulative_net_profit: {type: string}
+  profit_reserve: {type: string, pattern: "^(0|[0-9]+(\\.[0-9]+)?)$"}
+  opening_profit_reserve: {type: string}
+  unallocated_shares: {type: integer, minimum: 0}
+  transactions: {type: array, items: {type: object}}
+  profit_reserve_adjustments: {type: array, items: {$ref: "#/$defs/reserve_adjustment"}}
+  audit_trail: {type: array, items: {type: object}}
+  last_updated: {type: [string, "null"], format: date-time}
+$defs:
+  reserve_adjustment:
+    type: object
+    required: [date, previous_value, adjusted_value, difference, reason, source]
+    properties:
+      date: {type: string, format: date-time}
+      previous_value: {type: string}
+      adjusted_value: {type: string}
+      difference: {type: string}
+      reason: {type: string, minLength: 1}
+      source: {type: string, const: manual}
+      after_transaction_id: {type: [string, "null"]}
