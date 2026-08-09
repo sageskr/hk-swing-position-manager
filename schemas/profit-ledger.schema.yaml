@@ -1,11 +1,14 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
 title: HK Swing Position Manager Profit Ledger
 type: object
-required: [cumulative_net_profit, profit_reserve, profit_generated_shares, transactions]
+required: [cumulative_net_profit, profit_reserve, profit_generated_shares, transactions, cash_ledger]
 properties:
   cumulative_net_profit: {type: string}
   profit_reserve: {type: string}
   profit_generated_shares: {type: integer, minimum: 0}
+  cash_ledger:
+    type: array
+    items: {$ref: "#/$defs/cash_event"}
   transactions:
     type: array
     items:
@@ -40,6 +43,26 @@ properties:
         remaining_profit_reserve: {type: string}
         reinvestment: {$ref: "#/$defs/reinvestment"}
 $defs:
+  cash_event:
+    type: object
+    required: [id, event_type, side, status, ticker, date, shares, price, gross_amount, transaction_cost, slippage_cost, net_cash_change]
+    properties:
+      id: {type: string, minLength: 1}
+      event_type: {type: string, enum: [sale, buy, repurchase]}
+      side: {type: string, enum: [sell, buy]}
+      status: {type: string, const: investor_reported}
+      source: {type: string, minLength: 1}
+      ticker: {type: string, minLength: 1}
+      date: {type: string, format: date}
+      shares: {type: integer, minimum: 1}
+      price: {type: string}
+      gross_amount: {type: string}
+      transaction_cost: {type: string}
+      slippage_cost: {type: string}
+      net_cash_change: {type: string}
+      cost_basis: {type: [string, "null"]}
+      cost_basis_added: {type: [string, "null"]}
+      realized_profit_loss: {type: [string, "null"]}
   leg:
     type: object
     required: [shares, price]

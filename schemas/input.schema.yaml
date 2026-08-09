@@ -36,6 +36,7 @@ properties:
     type: object
     properties:
       available_cash: {type: [number, "null"], minimum: 0}
+      cash_balance: {type: [number, "null"]}
       swing_capital_source: {type: string, enum: [sale_proceeds, cash, mixed]}
   strategy_config:
     type: object

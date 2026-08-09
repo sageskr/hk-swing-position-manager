@@ -23,3 +23,6 @@ state:
   valuation_as_of: null
   valuation_source: null
   valuation_status: unavailable
+  cash_balance: null
+  realized_profit_loss: "0"
+  cash_ledger: []

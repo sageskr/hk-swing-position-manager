@@ -165,6 +165,36 @@ state.save("state/0700.HK.json")
 
 `state/*.json` 已加入 `.gitignore`，持仓成本、市值和收益状态只保存在本地，不会上传到仓库。
 
+## Investor-reported Sale / Buy 与 Cash Ledger
+
+项目不执行订单，但允许投资人把已经完成的交易写入本地 State：
+
+```python
+from src.profit_ledger import ProfitLedger
+
+# 售出 10 股后，自动减少 Swing/Total Shares，记录现金变化和已实现盈亏。
+ProfitLedger.record_sale(
+    state,
+    transaction_id="sale-001",
+    shares=10,
+    price=478.80,
+    transaction_cost=25.75,
+)
+
+# 投资人之后买回 8 股。
+ProfitLedger.record_repurchase(
+    state,
+    transaction_id="repurchase-001",
+    shares=8,
+    price=460,
+    transaction_cost=25.00,
+)
+
+state.save("state/0700.HK.json")
+```
+
+售出记录会更新 `total_shares`、`current_swing_shares`、剩余成本基础、`cash_balance`、`realized_profit_loss` 和 `cash_ledger`。如果没有已知成本基础，单笔已实现盈亏会显示为无法计算，但售出股数和现金变化仍会记录。
+
 ## V2 State 与 Profit Ledger 使用方式
 
 State 以 JSON 保存，金额使用字符串保存以避免浮点精度损失。核心 API 位于 `src/state.py` 和 `src/profit_ledger.py`：
@@ -277,12 +307,21 @@ position:
 - Audit Trail：人工修改 Profit Reserve 或实际交易数据时记录修改前后值、时间、原因和来源。
 - 原始 `swing_shares` 输入别名仍兼容；V2 推荐 `initial_swing_shares`。
 
+## P0 已实现功能
+
+- Investor-reported sale-only、buy-only 和 repurchase 记录。
+- 售出后更新 Swing/Total Shares、剩余成本基础和 Cash Ledger。
+- 已知成本基础时计算 realized profit/loss。
+- 已知现金余额时阻止超过现金余额的买入记录。
+- 记录每笔投资人提供的交易 Audit Trail；不执行订单。
+
 ## 当前未实现功能
 
 - 行情数据获取、数据校验与数据源适配
 - 趋势、动量、成交量和市场状态判定
 - 程序化支撑/阻力区域识别
 - 完整 Core/Swing 交易后的买卖阶梯和资金限制
+- FIFO/加权平均成本的完整可配置模型和复杂交易配对
 - Sell Recommendation Ladder、Buy Recommendation Ladder 和完整风险参数计算
 - Moomoo Singapore 最新费用加载与费用计算
 - 滑点、风险控制、情景分析与结构化报告

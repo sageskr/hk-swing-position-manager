@@ -49,6 +49,33 @@ class PositionStateTests(unittest.TestCase):
         self.assertEqual(state.market_value, 155250)
         self.assertEqual(state.unrealized_profit_loss, 0)
 
+    def test_cash_ledger_persists(self) -> None:
+        state = self.make_state()
+        state.update_holding(cash_balance=1000, reason="test cash")
+        state.cash_ledger.append({
+            "id": "sale-1",
+            "event_type": "sale",
+            "side": "sell",
+            "status": "investor_reported",
+            "source": "test",
+            "ticker": "0700.HK",
+            "date": "2026-08-09",
+            "shares": 1,
+            "price": "500",
+            "gross_amount": "500",
+            "transaction_cost": "25",
+            "slippage_cost": "0",
+            "net_cash_change": "475",
+            "cost_basis": "0",
+            "realized_profit_loss": "500",
+        })
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "state.json"
+            state.save(path)
+            restored = PositionState.load(path)
+        self.assertEqual(restored.cash_balance, 1000)
+        self.assertEqual(restored.cash_ledger[0]["id"], "sale-1")
+
     def test_state_round_trip_persistence(self) -> None:
         state = self.make_state()
         state.apply_reserve_adjustment("310.50", "test")

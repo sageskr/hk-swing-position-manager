@@ -18,6 +18,9 @@ required:
   - current_price
   - market_value
   - unrealized_profit_loss
+  - cash_balance
+  - realized_profit_loss
+  - cash_ledger
 properties:
   ticker: {type: string, minLength: 1}
   total_shares: {type: integer, minimum: 0}
@@ -42,7 +45,30 @@ properties:
   valuation_as_of: {type: [string, "null"], format: date-time}
   valuation_source: {type: [string, "null"]}
   valuation_status: {type: string, enum: [verified, user_provided, estimated, unavailable]}
+  cash_balance: {type: [string, "null"]}
+  realized_profit_loss: {type: [string, "null"]}
+  cash_ledger: {type: array, items: {$ref: "#/$defs/cash_event"}}
 $defs:
+  cash_event:
+    type: object
+    required: [id, event_type, side, status, ticker, date, shares, price, gross_amount, transaction_cost, slippage_cost, net_cash_change]
+    properties:
+      id: {type: string, minLength: 1}
+      event_type: {type: string, enum: [sale, buy, repurchase]}
+      side: {type: string, enum: [sell, buy]}
+      status: {type: string, const: investor_reported}
+      source: {type: string, minLength: 1}
+      ticker: {type: string, minLength: 1}
+      date: {type: string, format: date}
+      shares: {type: integer, minimum: 1}
+      price: {type: string}
+      gross_amount: {type: string}
+      transaction_cost: {type: string}
+      slippage_cost: {type: string}
+      net_cash_change: {type: string}
+      cost_basis: {type: [string, "null"]}
+      cost_basis_added: {type: [string, "null"]}
+      realized_profit_loss: {type: [string, "null"]}
   reserve_adjustment:
     type: object
     required: [date, previous_value, adjusted_value, difference, reason, source]

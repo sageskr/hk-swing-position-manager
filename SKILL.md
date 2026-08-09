@@ -14,6 +14,7 @@
 - Transaction Cost Estimate
 - Net Profit Simulation
 - Holding Cost / Market Value / Unrealized Profit or Loss
+- Cash Ledger / Realized Profit or Loss
 - Risk Warning
 
 本 Skill 永久只提供买入、卖出和持有建议，不提供任何直接卖出、直接买入或自动下单功能。投资人自行决定是否执行建议，并自行承担交易责任。
@@ -37,15 +38,16 @@
 2. 获取并标记数据来源、时间戳和数据新鲜度；数据不可验证时停止生成确定性价格计划。
 3. 综合 OHLC、Volume、近期高低点、摆动高低点、均线、价格结构、动量和成交量行为判断 Market Regime。
 4. 识别并解释 Support Zones 与 Resistance Zones，输出来源、强度和置信度。
-5. 计算 Core/Swing Position，先校验持仓不变量，再恢复 State 和 Profit Ledger；同时读取持股成本、当前价格、市值和未实现盈亏。
-6. 对每轮已完成交易计算 commission、platform fee、stamp duty、trading fee、transaction levy、settlement fee、GST、滑点和其他适用费用，并更新 Profit Reserve。
-7. 只有在 Buy Zone、Trend Filter、Support Breakdown 和风险限制都允许时，才评估 Profit Reinvestment；Reserve 达标不等于必须买入。
-8. 用户提供实际成交数据或人工 Reserve 调整时，重新计算并写入 Audit Trail。
-9. 在通过上述约束后，再生成 2–4 层 Sell Recommendation Ladder 和 Buy Recommendation Ladder；这些层级只能作为建议，不能作为订单执行指令。
-10. 输出 Gross Profit、Transaction Cost、Net Profit、Cost Ratio、Minimum Effective Spread，并按阈值发出告警。
-11. 输出 Profit Status、Profit Generated Shares、Profit Reserve 和 Audit Trail 状态。
-12. 生成 Bull、Base、Bear 三种情景，每个情景必须包含 trigger、expected behavior、recommended action 和 risk。
-13. 按固定顺序输出报告，并在最后给出简洁的 `WAIT / BUY / SELL / HOLD` 建议；其中 BUY/SELL 仅表示建议，不代表已成交。
+5. 计算 Core/Swing Position，先校验持仓不变量，再恢复 State 和 Profit Ledger；同时读取持股成本、当前价格、市值、未实现盈亏、现金和已实现盈亏。
+6. 对投资人提供的实际售出、买入或买回记录更新 Cash Ledger、Swing Position、成本基础和已实现盈亏；这些记录不执行订单。
+7. 对每轮已完成交易计算 commission、platform fee、stamp duty、trading fee、transaction levy、settlement fee、GST、滑点和其他适用费用，并更新 Profit Reserve。
+8. 只有在 Buy Zone、Trend Filter、Support Breakdown 和风险限制都允许时，才评估 Profit Reinvestment；Reserve 达标不等于必须买入。
+9. 用户提供实际成交数据或人工 Reserve 调整时，重新计算并写入 Audit Trail。
+10. 在通过上述约束后，再生成 2–4 层 Sell Recommendation Ladder 和 Buy Recommendation Ladder；这些层级只能作为建议，不能作为订单执行指令。
+11. 输出 Gross Profit、Transaction Cost、Net Profit、Cost Ratio、Minimum Effective Spread，并按阈值发出告警。
+12. 输出 Profit Status、Profit Generated Shares、Profit Reserve 和 Audit Trail 状态。
+13. 生成 Bull、Base、Bear 三种情景，每个情景必须包含 trigger、expected behavior、recommended action 和 risk。
+14. 按固定顺序输出报告，并在最后给出简洁的 `WAIT / BUY / SELL / HOLD` 建议；其中 BUY/SELL 仅表示建议，不代表已成交。
 
 ## Conclusion-first output
 
@@ -116,7 +118,7 @@ unrealized_profit_loss = market_value - total_cost
 
 ## Current implementation boundary
 
-当前已实现 State/Position 基础校验、JSON 状态持久化、Profit Ledger、Profit Reserve、利润再投资资格检查、实际成交人工调整和 Audit Trail。尚未实现：
+当前已实现 State/Position 基础校验、JSON 状态持久化、Profit Ledger、Profit Reserve、利润再投资资格检查、投资人已成交的 sale-only/buy-only/repurchase 记录、Cash Ledger、剩余成本基础、已实现盈亏、实际成交人工调整和 Audit Trail。尚未实现：
 
 - 实时或历史市场数据获取
 - 技术指标与趋势计算

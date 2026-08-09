@@ -20,10 +20,10 @@ Progressive Buy Recommendation Ladder（仅为建议，不是订单）：
 
 ## Position accounting
 
-每笔由投资人提供的实际成交记录至少包括：
+每笔由投资人提供的实际成交记录至少包括：售出、买入和买回可以独立记录，不要求数量相等。
 
 ```text
-side, price, shares, gross_value, fees, slippage, net_cash_change, source
+id, event_type, side, price, shares, gross_value, fees, slippage, net_cash_change, source
 ```
 
 计划汇总至少包括：
@@ -39,7 +39,7 @@ ending_cash
 
 ## Profit accounting
 
-投资人提供的卖出与之后买回可以组成一个可追踪的 round trip。不得把建议或未成交计划当作已实现收益；项目不会替投资人执行卖出或买入。
+投资人提供的售出与之后买回可以组成一个可追踪的 round trip，也可以只记录单独售出或单独买入。不得把建议或未成交计划当作已实现收益；项目不会替投资人执行卖出或买入。
 
 ```text
 Gross Profit = sell proceeds - repurchase cost

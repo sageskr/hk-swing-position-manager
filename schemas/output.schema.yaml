@@ -8,6 +8,7 @@ required:
   - support_resistance
   - position
   - holding_valuation
+  - cash_accounting
   - sell_ladder
   - buy_ladder
   - transaction_cost
@@ -111,6 +112,13 @@ properties:
       status: {type: string, enum: [verified, user_provided, estimated, unavailable]}
       source: {type: [string, "null"]}
       as_of: {type: [string, "null"], format: date-time}
+  cash_accounting:
+    type: object
+    required: [cash_balance, realized_profit_loss, cash_ledger]
+    properties:
+      cash_balance: {type: [number, "null"]}
+      realized_profit_loss: {type: [number, "null"]}
+      cash_ledger: {type: array, items: {type: object}}
   sell_ladder: {type: array, minItems: 0, maxItems: 4, items: {$ref: "#/$defs/recommendation_level"}}
   buy_ladder: {type: array, minItems: 0, maxItems: 4, items: {$ref: "#/$defs/recommendation_level"}}
   transaction_cost:

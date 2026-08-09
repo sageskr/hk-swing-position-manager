@@ -69,6 +69,9 @@ class PositionState:
     valuation_as_of: str | None = None
     valuation_source: str | None = None
     valuation_status: str = "unavailable"
+    cash_balance: Decimal | None = None
+    realized_profit_loss: Decimal | None = Decimal("0")
+    cash_ledger: list[dict[str, Any]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.current_swing_shares is None:
@@ -85,6 +88,8 @@ class PositionState:
         self.current_price = optional_money(self.current_price)
         self.market_value = optional_money(self.market_value)
         self.unrealized_profit_loss = optional_money(self.unrealized_profit_loss)
+        self.cash_balance = optional_money(self.cash_balance)
+        self.realized_profit_loss = optional_money(self.realized_profit_loss)
         self.recalculate_valuation()
         self.validate()
 
@@ -179,6 +184,7 @@ class PositionState:
         total_shares: Any = _UNSET,
         core_shares: Any = _UNSET,
         current_swing_shares: Any = _UNSET,
+        cash_balance: Any = _UNSET,
         average_cost: Any = _UNSET,
         total_cost: Any = _UNSET,
         current_price: Any = _UNSET,
@@ -197,6 +203,7 @@ class PositionState:
             "total_shares": self.total_shares,
             "core_shares": self.core_shares,
             "current_swing_shares": self.current_swing_shares,
+            "cash_balance": None if self.cash_balance is None else str(self.cash_balance),
             "average_cost": None if self.average_cost is None else str(self.average_cost),
             "total_cost": None if self.total_cost is None else str(self.total_cost),
             "current_price": None if self.current_price is None else str(self.current_price),
@@ -211,6 +218,8 @@ class PositionState:
             self.core_shares = int(core_shares)
         if current_swing_shares is not _UNSET:
             self.current_swing_shares = int(current_swing_shares)
+        if cash_balance is not _UNSET:
+            self.cash_balance = optional_money(cash_balance)
         if average_cost is not _UNSET:
             self.average_cost = optional_money(average_cost)
             if total_cost is _UNSET:
@@ -239,6 +248,10 @@ class PositionState:
             "market_value": None if self.market_value is None else str(self.market_value),
             "unrealized_profit_loss": (
                 None if self.unrealized_profit_loss is None else str(self.unrealized_profit_loss)
+            ),
+            "cash_balance": None if self.cash_balance is None else str(self.cash_balance),
+            "realized_profit_loss": (
+                None if self.realized_profit_loss is None else str(self.realized_profit_loss)
             ),
         })
 
@@ -291,6 +304,11 @@ class PositionState:
             "valuation_as_of": self.valuation_as_of,
             "valuation_source": self.valuation_source,
             "valuation_status": self.valuation_status,
+            "cash_balance": None if self.cash_balance is None else str(self.cash_balance),
+            "realized_profit_loss": (
+                None if self.realized_profit_loss is None else str(self.realized_profit_loss)
+            ),
+            "cash_ledger": self.cash_ledger,
         }
 
     @classmethod
@@ -335,6 +353,12 @@ class PositionState:
             valuation_as_of=raw.get("valuation_as_of"),
             valuation_source=raw.get("valuation_source"),
             valuation_status=str(raw.get("valuation_status", "unavailable")),
+            cash_balance=money(raw["cash_balance"]) if raw.get("cash_balance") is not None else None,
+            realized_profit_loss=(
+                money(raw["realized_profit_loss"])
+                if raw.get("realized_profit_loss") is not None else None
+            ),
+            cash_ledger=[dict(item) for item in raw.get("cash_ledger", [])],
         )
 
     def save(self, path: str | Path) -> None:

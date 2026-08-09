@@ -37,7 +37,182 @@ def _price(value: Any, field: str) -> Decimal:
 
 
 class ProfitLedger:
-    """Operations for completed Swing trades and profit reinvestment."""
+    """Operations for investor-reported trades and profit reinvestment."""
+
+    @staticmethod
+    def _ensure_transaction_id(state: PositionState, transaction_id: str) -> None:
+        if any(item.get("id") == transaction_id for item in state.cash_ledger):
+            raise LedgerError(f"duplicate cash ledger transaction_id: {transaction_id}")
+        if any(item.get("id") == transaction_id for item in state.transactions):
+            raise LedgerError(f"duplicate transaction_id: {transaction_id}")
+
+    @staticmethod
+    def record_sale(
+        state: PositionState,
+        *,
+        transaction_id: str,
+        shares: int,
+        price: Any,
+        transaction_cost: Any = 0,
+        slippage_cost: Any = 0,
+        trade_date: str | None = None,
+        source: str = "investor_reported",
+    ) -> dict[str, Any]:
+        """Record an investor-reported sale without executing an order."""
+
+        shares = _shares(shares, "sale.shares")
+        price = _price(price, "sale.price")
+        cost = money(transaction_cost)
+        slippage = money(slippage_cost)
+        if cost < 0 or slippage < 0:
+            raise LedgerError("sale costs cannot be negative")
+        if shares > state.current_swing_shares:
+            raise LedgerError("cannot sell more than current Swing Position")
+        ProfitLedger._ensure_transaction_id(state, transaction_id)
+
+        cost_basis_per_share = state.average_cost
+        if cost_basis_per_share is None and state.total_cost is not None and state.total_shares:
+            cost_basis_per_share = state.total_cost / state.total_shares
+        cost_basis = (
+            cost_basis_per_share * shares if cost_basis_per_share is not None else None
+        )
+        gross_proceeds = price * shares
+        net_proceeds = gross_proceeds - cost - slippage
+        realized = None if cost_basis is None else net_proceeds - cost_basis
+
+        state.total_shares -= shares
+        state.current_swing_shares -= shares
+        if state.total_cost is not None and cost_basis is not None:
+            state.total_cost = max(Decimal("0"), state.total_cost - cost_basis)
+        if state.total_shares == 0:
+            state.average_cost = None
+            state.total_cost = Decimal("0")
+        elif state.total_cost is not None:
+            state.average_cost = state.total_cost / state.total_shares
+        if state.cash_balance is not None:
+            state.cash_balance += net_proceeds
+        event = {
+            "id": transaction_id,
+            "event_type": "sale",
+            "side": "sell",
+            "status": "investor_reported",
+            "source": source,
+            "ticker": state.ticker,
+            "date": trade_date or date.today().isoformat(),
+            "shares": shares,
+            "price": str(price),
+            "gross_amount": str(gross_proceeds),
+            "transaction_cost": str(cost),
+            "slippage_cost": str(slippage),
+            "net_cash_change": str(net_proceeds),
+            "cost_basis": None if cost_basis is None else str(cost_basis),
+            "realized_profit_loss": None if realized is None else str(realized),
+        }
+        state.cash_ledger.append(event)
+        ProfitLedger.recalculate_state(state)
+        state.record_audit(
+            "investor_sale_recorded",
+            transaction_id=transaction_id,
+            shares=shares,
+            realized_profit_loss=None if realized is None else str(realized),
+        )
+        return event
+
+    @staticmethod
+    def record_buy(
+        state: PositionState,
+        *,
+        transaction_id: str,
+        shares: int,
+        price: Any,
+        transaction_cost: Any = 0,
+        slippage_cost: Any = 0,
+        trade_date: str | None = None,
+        source: str = "investor_reported",
+        event_type: str = "buy",
+    ) -> dict[str, Any]:
+        """Record an investor-reported buy without executing an order."""
+
+        shares = _shares(shares, f"{event_type}.shares")
+        price = _price(price, f"{event_type}.price")
+        cost = money(transaction_cost)
+        slippage = money(slippage_cost)
+        if cost < 0 or slippage < 0:
+            raise LedgerError(f"{event_type} costs cannot be negative")
+        ProfitLedger._ensure_transaction_id(state, transaction_id)
+        gross_amount = price * shares
+        total_outflow = gross_amount + cost + slippage
+        if state.cash_balance is not None and total_outflow > state.cash_balance:
+            raise LedgerError(f"{event_type} exceeds available cash_balance")
+
+        previous_total_shares = state.total_shares
+        if state.total_cost is None and state.average_cost is not None:
+            state.total_cost = state.average_cost * previous_total_shares
+        state.total_shares += shares
+        state.current_swing_shares += shares
+        if state.total_cost is not None:
+            state.total_cost += total_outflow
+            state.average_cost = state.total_cost / state.total_shares
+        elif previous_total_shares == 0:
+            # A holding created by this buy has a fully known cost basis. For
+            # an existing holding with unknown cost, do not invent one.
+            state.total_cost = total_outflow
+            state.average_cost = state.total_cost / state.total_shares
+        if state.cash_balance is not None:
+            state.cash_balance -= total_outflow
+
+        event = {
+            "id": transaction_id,
+            "event_type": event_type,
+            "side": "buy",
+            "status": "investor_reported",
+            "source": source,
+            "ticker": state.ticker,
+            "date": trade_date or date.today().isoformat(),
+            "shares": shares,
+            "price": str(price),
+            "gross_amount": str(gross_amount),
+            "transaction_cost": str(cost),
+            "slippage_cost": str(slippage),
+            "net_cash_change": str(-total_outflow),
+            "cost_basis_added": str(total_outflow),
+            "realized_profit_loss": "0",
+        }
+        state.cash_ledger.append(event)
+        ProfitLedger.recalculate_state(state)
+        state.record_audit(
+            "investor_buy_recorded",
+            transaction_id=transaction_id,
+            event_type=event_type,
+            shares=shares,
+        )
+        return event
+
+    @staticmethod
+    def record_repurchase(
+        state: PositionState,
+        *,
+        transaction_id: str,
+        shares: int,
+        price: Any,
+        transaction_cost: Any = 0,
+        slippage_cost: Any = 0,
+        trade_date: str | None = None,
+        source: str = "investor_reported",
+    ) -> dict[str, Any]:
+        """Record an investor-reported Swing Position repurchase."""
+
+        return ProfitLedger.record_buy(
+            state,
+            transaction_id=transaction_id,
+            shares=shares,
+            price=price,
+            transaction_cost=transaction_cost,
+            slippage_cost=slippage_cost,
+            trade_date=trade_date,
+            source=source,
+            event_type="repurchase",
+        )
 
     @staticmethod
     def record_trade(
@@ -60,6 +235,9 @@ class ProfitLedger:
         buy_shares = _shares(buy_shares, "buy_shares")
         if sell_shares != buy_shares:
             raise LedgerError("a completed round trip must sell and buy equal shares")
+        if sell_shares > state.current_swing_shares:
+            raise LedgerError("cannot sell more than current Swing Position")
+        ProfitLedger._ensure_transaction_id(state, transaction_id)
         sell_price = _price(sell_price, "sell_price")
         buy_price = _price(buy_price, "buy_price")
         transaction_cost = money(transaction_cost)
@@ -131,6 +309,15 @@ class ProfitLedger:
                 if adjustment.get("after_transaction_id") == after_transaction_id:
                     reserve = max(Decimal("0"), reserve + money(adjustment["difference"]))
 
+        cash_event_delta = 0
+        for event in state.cash_ledger:
+            event_type = event.get("event_type")
+            event_shares = int(event.get("shares", 0))
+            if event_type == "sale":
+                cash_event_delta -= event_shares
+            elif event_type in {"buy", "repurchase"}:
+                cash_event_delta += event_shares
+
         apply_reserve_adjustments(None)
         for transaction in recalculated:
             sell = transaction["sell"]
@@ -171,8 +358,8 @@ class ProfitLedger:
         state.transactions = recalculated
         state.cumulative_net_profit = cumulative
         state.profit_generated_shares = generated
-        state.current_swing_shares = current_swing
-        state.total_shares = state.core_shares + current_swing + state.unallocated_shares
+        state.current_swing_shares = current_swing + cash_event_delta
+        state.total_shares = state.core_shares + state.current_swing_shares + state.unallocated_shares
         new_reinvestment_total = sum(
             (money(item.get("reinvestment", {}).get("amount_used", 0))
              for item in recalculated),
@@ -189,6 +376,15 @@ class ProfitLedger:
             state.average_cost = (
                 state.total_cost / state.total_shares if state.total_shares else None
             )
+        realized_values = [
+            money(item["realized_profit_loss"])
+            for item in state.cash_ledger
+            if item.get("realized_profit_loss") is not None
+        ]
+        realized_values.extend(money(item["net_profit"]) for item in recalculated)
+        if realized_values:
+            state.realized_profit_loss = sum(realized_values, Decimal("0"))
+
         state.recalculate_valuation()
         state.profit_reserve = reserve
         state.last_updated = utc_now()
