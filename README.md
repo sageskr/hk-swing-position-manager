@@ -1,18 +1,18 @@
 # HK Swing Position Manager
 
-港股持仓波段交易决策辅助 Skill。它帮助用户把已有持仓拆分为长期 Core Position 与可交易 Swing Position，在不减少长期底仓的前提下，模拟上涨分批卖出、下跌分批买回，并比较交易成本与净收益。
+港股持仓波段交易决策辅助 Skill。它帮助用户把已有持仓拆分为长期 Core Position 与可交易 Swing Position，提供上涨分批卖出、下跌分批买回的建议，并比较交易成本与净收益。所有买入和卖出决定由投资人自行作出。
 
-> **重要：当前已完成 Phase 1–3 的基础版本。** State、Profit Ledger、Profit Reserve 和人工调整已实现；行情、完整费用、阶梯、回测和经纪商集成仍未完成，也绝不会自动下单。所有结果在实现完成并经过测试前都不应视为投资建议。
+> **重要：当前已完成 Phase 1–3 的基础版本。** State、Profit Ledger、Profit Reserve 和人工调整已实现；行情、完整费用、阶梯和回测仍未完成。项目只输出建议，永久不提供经纪商连接、直接卖出、直接买入或自动下单。所有结果在实现完成并经过测试前都不应视为投资建议。
 
 ## 项目是什么
 
 - 默认平台：Moomoo Singapore
 - 默认市场：Hong Kong Stock Exchange
 - 默认货币：HKD
-- 目标：生成 Market Analysis、Trading Plan、Buy/Sell Ladder、费用估算、净收益模拟和风险警告
+- 目标：生成 Market Analysis、Trading Recommendation、Buy/Sell Recommendation Ladder、费用估算、净收益模拟和风险警告
 - 原则：Core Position 优先保护；净收益优先于毛收益；重大支撑跌破后停止机械补仓
 
-本项目是决策辅助工具，不是自动交易机器人。最终交易决定、订单确认和风险承担由用户负责。
+本项目是建议辅助工具，不是交易执行机器人。最终买入、卖出、订单确认和风险承担均由投资人负责。
 
 ## 目录结构
 
@@ -79,6 +79,10 @@ python -m venv .venv
 ```bash
 python -m pip install -e ".[dev]"
 ```
+
+## 建议而非执行
+
+Sell Recommendation Ladder 和 Buy Recommendation Ladder 只表示价格区域与数量建议，不代表订单，也不代表已经成交。项目不包含券商 API、直接卖出、直接买入或自动下单接口；投资人需要自行判断、下单和记录实际成交结果。Profit Ledger 的实际成交调整只接受投资人提供的成交数据，不会替投资人执行交易。
 
 ## 当前如何运行
 
@@ -164,7 +168,7 @@ position:
 - `buy_mode`：默认 `progressive`。
 - `minimum_core_shares`：长期底仓下限。
 - `max_capital_drawdown`：最大资金回撤比例。
-- `max_single_transaction_ratio`：单笔交易占 Swing Position 的上限。
+- `max_single_transaction_ratio`：单笔建议占 Swing Position 的上限；它不会触发任何订单。
 - `minimum_net_profit` 与 `minimum_profit_to_cost_ratio`：费用告警阈值。
 
 策略思想不能在未确认的情况下自行改变。
@@ -200,10 +204,10 @@ position:
 3. **Phase 3：** Profit Ledger、Profit Reinvestment、Manual Adjustment、Audit Trail（已完成基础版本）。
 4. **Phase 4：** Transaction cost、Moomoo Fee Model、Slippage、Cost Alert。
 5. **Phase 5：** Market analysis、Trend、Support、Resistance。
-6. **Phase 6：** Sell Ladder、Buy Ladder、Adaptive Sell、Progressive Buy。
+6. **Phase 6：** Sell Recommendation Ladder、Buy Recommendation Ladder、Adaptive Sell、Progressive Buy。
 7. **Phase 7：** Risk control、Drawdown、Position Limits、Breakdown Protection。
 8. **Phase 8：** Backtest。
-9. **Phase 9：** Moomoo integration（仍禁止自动下单，除非另行确认）。
+9. **Phase 9：** 不提供 Moomoo Integration；项目永久保持建议模式。
 
 每个阶段都必须运行测试、检查结果、更新 README，并明确报告尚未实现的功能。
 
@@ -221,8 +225,8 @@ position:
 - 趋势、动量、成交量和市场状态判定
 - 程序化支撑/阻力区域识别
 - 完整 Core/Swing 交易后的买卖阶梯和资金限制
-- Sell Ladder、Buy Ladder 和完整风险参数计算
+- Sell Recommendation Ladder、Buy Recommendation Ladder 和完整风险参数计算
 - Moomoo Singapore 最新费用加载与费用计算
 - 滑点、风险控制、情景分析与结构化报告
 - 回测、Buy & Hold 对比和 CLI
-- 任何经纪商连接或自动下单
+- 任何经纪商连接、直接卖出、直接买入或自动下单

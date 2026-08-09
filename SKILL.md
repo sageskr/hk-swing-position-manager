@@ -9,13 +9,13 @@
 根据用户已有的港股持仓，在保护长期 **Core Position** 的前提下，为可交易的 **Swing Position** 生成：
 
 - Market Analysis
-- Trading Plan
-- Buy/Sell Ladder
+- Trading Recommendation
+- Buy/Sell Recommendation Ladder
 - Transaction Cost Estimate
 - Net Profit Simulation
 - Risk Warning
 
-本 Skill 不是自动交易机器人。第一阶段禁止自动下单，只能输出分析、模拟和待用户确认的计划。
+本 Skill 永久只提供买入、卖出和持有建议，不提供任何直接卖出、直接买入或自动下单功能。投资人自行决定是否执行建议，并自行承担交易责任。
 
 ## Non-negotiable strategy rules
 
@@ -24,7 +24,7 @@
 3. 接近 Resistance 时分批卖出，接近 Support 时分批买入。
 4. 价格越低，原则上买入股数越多；但 Progressive Buying 必须受资金、趋势和风险限制。
 5. 重大 Support Breakdown 后停止机械补仓。
-6. 强势 Bullish Breakout 时减少、延迟或重新计算卖出计划，不机械清空 Swing Position。
+6. 强势 Bullish Breakout 时减少、延迟或重新计算卖出建议，不机械建议清空 Swing Position。
 7. 所有交易必须计算费用、滑点、毛收益和净收益。
 8. 如果费用占毛收益过高、净收益过低或数据无法验证，必须明确警告或建议不交易。
 9. 不预测绝对顶部和绝对底部，使用价格区域与情景分析。
@@ -40,11 +40,11 @@
 6. 对每轮已完成交易计算 commission、platform fee、stamp duty、trading fee、transaction levy、settlement fee、GST、滑点和其他适用费用，并更新 Profit Reserve。
 7. 只有在 Buy Zone、Trend Filter、Support Breakdown 和风险限制都允许时，才评估 Profit Reinvestment；Reserve 达标不等于必须买入。
 8. 用户提供实际成交数据或人工 Reserve 调整时，重新计算并写入 Audit Trail。
-9. 在通过上述约束后，再生成 2–4 层 Sell Ladder 和 Buy Ladder。
+9. 在通过上述约束后，再生成 2–4 层 Sell Recommendation Ladder 和 Buy Recommendation Ladder；这些层级只能作为建议，不能作为订单执行指令。
 10. 输出 Gross Profit、Transaction Cost、Net Profit、Cost Ratio、Minimum Effective Spread，并按阈值发出告警。
 11. 输出 Profit Status、Profit Generated Shares、Profit Reserve 和 Audit Trail 状态。
 12. 生成 Bull、Base、Bear 三种情景，每个情景必须包含 trigger、expected behavior、recommended action 和 risk。
-13. 按固定顺序输出报告，并在最后给出简洁的 `WAIT / BUY / SELL / HOLD` 计划。
+13. 按固定顺序输出报告，并在最后给出简洁的 `WAIT / BUY / SELL / HOLD` 建议；其中 BUY/SELL 仅表示建议，不代表已成交。
 
 ## Output order
 
@@ -52,15 +52,15 @@
 2. Trend
 3. Support / Resistance
 4. Core / Swing Position
-5. Sell Ladder
-6. Buy Ladder
+5. Sell Recommendation Ladder
+6. Buy Recommendation Ladder
 7. Transaction Cost
 8. Net Profit
 9. Share Growth
 10. Profit Status
 11. Bull / Base / Bear
 12. Risk Warning
-13. Final Execution Plan
+13. Final Recommendation
 
 ## Data and fee policy
 
@@ -78,7 +78,7 @@
 - 技术指标与趋势计算
 - 支撑阻力算法
 - Sell/Buy Ladder 计算、完整费用、市场分析、风险和回测计算
-- Moomoo API 或任何自动下单
+- Moomoo API、直接卖出/买入接口或任何自动下单
 - 可执行 CLI 或完整报告生成
 
 后续实现必须保持策略定义（`references/`）与程序实现（`src/`）分离；如认为策略本身需要调整，先说明 Problem、Why it matters、Possible solutions、Recommended option，等待用户确认。

@@ -1,7 +1,7 @@
 """Profit Ledger and profit-funded Swing Share reinvestment.
 
-The ledger works with :class:`PositionState` and records completed round trips.
-It never places orders and requires callers to explicitly confirm a Buy Zone,
+The ledger works with :class:`PositionState` and records round trips reported by
+the investor. It never places sell or buy orders and requires callers to explicitly confirm a Buy Zone,
 trend permission and breakdown status before reinvestment.
 """
 

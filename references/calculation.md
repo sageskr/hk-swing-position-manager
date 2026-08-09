@@ -4,14 +4,14 @@
 
 ## Ladder constraints
 
-Sell Ladder：
+Sell Recommendation Ladder（仅为建议，不是订单）：
 
 - 2–4 个价格层级。
 - 所有数量来自 Swing Position。
 - 阻力越强或越接近目标区域，数量由市场状态与风险配置共同决定。
 - Bullish Breakout 时可减少、延迟或重新计算卖出层级。
 
-Progressive Buy Ladder：
+Progressive Buy Recommendation Ladder（仅为建议，不是订单）：
 
 - 2–4 个价格层级。
 - 对按价格从高到低排序的层级，股数必须保持不减少。
@@ -20,7 +20,7 @@ Progressive Buy Ladder：
 
 ## Position accounting
 
-每笔成交记录至少包括：
+每笔由投资人提供的实际成交记录至少包括：
 
 ```text
 side, price, shares, gross_value, fees, slippage, net_cash_change, source
@@ -39,7 +39,7 @@ ending_cash
 
 ## Profit accounting
 
-卖出与之后买回组成一个可追踪的 round trip。不得把未成交计划当作已实现收益。
+投资人提供的卖出与之后买回可以组成一个可追踪的 round trip。不得把建议或未成交计划当作已实现收益；项目不会替投资人执行卖出或买入。
 
 ```text
 Gross Profit = sell proceeds - repurchase cost

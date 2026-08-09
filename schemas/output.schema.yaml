@@ -13,7 +13,7 @@ required:
   - profit_status
   - scenarios
   - risk_warnings
-  - final_execution_plan
+  - final_recommendation
 properties:
   metadata:
     type: object
@@ -55,8 +55,8 @@ properties:
       ending_swing_shares: {type: integer, minimum: 0}
       additional_shares_gained_or_lost: {type: integer}
       ending_cash: {type: number}
-  sell_ladder: {type: array, minItems: 0, maxItems: 4, items: {$ref: "#/$defs/ladder_level"}}
-  buy_ladder: {type: array, minItems: 0, maxItems: 4, items: {$ref: "#/$defs/ladder_level"}}
+  sell_ladder: {type: array, minItems: 0, maxItems: 4, items: {$ref: "#/$defs/recommendation_level"}}
+  buy_ladder: {type: array, minItems: 0, maxItems: 4, items: {$ref: "#/$defs/recommendation_level"}}
   transaction_cost:
     type: object
     properties:
@@ -113,13 +113,14 @@ properties:
       base: {$ref: "#/$defs/scenario"}
       bear: {$ref: "#/$defs/scenario"}
   risk_warnings: {type: array, items: {type: string}}
-  final_execution_plan:
+  final_recommendation:
     type: object
-    required: [action]
+    required: [action, investor_decision_required]
     properties:
       action: {type: string, enum: [WAIT, BUY, SELL, HOLD]}
       summary: {type: string}
-      automatic_ordering: {type: boolean, const: false}
+      investor_decision_required: {type: boolean, const: true}
+      order_submitted: {type: boolean, const: false}
 $defs:
   zone:
     type: object
@@ -130,15 +131,16 @@ $defs:
       strength: {type: string, enum: [weak, medium, strong]}
       confidence: {type: string, enum: [low, medium, high]}
       sources: {type: array, items: {type: string}}
-  ladder_level:
+  recommendation_level:
     type: object
-    required: [price, shares]
+    required: [price, shares, status]
     properties:
       price: {type: number, exclusiveMinimum: 0}
       shares: {type: integer, minimum: 0}
       trigger: {type: string}
       estimated_cost: {type: number, minimum: 0}
-      status: {type: string, enum: [planned, blocked, executed, unavailable]}
+      status: {type: string, enum: [recommended, blocked, unavailable]}
+      investor_decision_required: {type: boolean, const: true}
   scenario:
     type: object
     required: [trigger, expected_market_behavior, recommended_action, risk]

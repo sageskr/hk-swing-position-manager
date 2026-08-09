@@ -13,14 +13,14 @@ core_shares + swing_shares <= total_shares
 
 1. 校验非负整数股数和最小交易单位。
 2. 确认 Core 下限与初始 Swing 数量。
-3. 计算每个 Sell Ladder 层级卖出后的剩余 Swing 股数。
-4. 将可用卖出资金、已有现金和滑点/费用纳入 Buy Ladder 预算。
+3. 计算每个 Sell Recommendation Ladder 层级建议售出后的剩余 Swing 股数。
+4. 将可用卖出资金、已有现金和滑点/费用纳入 Buy Recommendation Ladder 预算；这些都是给投资人的建议，不是执行指令。
 5. 计算每个买回层级后的 Swing 股数、总股数和剩余现金。
 6. 输出 `sold_shares`、`repurchased_shares`、`ending_swing_shares` 和 `additional_shares_gained_or_lost`。
 
 ## Core protection
 
-所有卖出数量只能来自 Swing Position。若某一层交易会使总持仓低于 Core 下限，必须阻止该层交易并报告原因。即使用户有亏损，也不能默认出售 Core 来筹资。
+所有售出建议数量只能来自 Swing Position。若某一层建议会使总持仓低于 Core 下限，必须阻止该建议并报告原因。即使用户有亏损，也不能默认建议出售 Core 来筹资。项目不会替投资人提交卖出订单。
 
 ## Share growth
 

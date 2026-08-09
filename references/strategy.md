@@ -2,12 +2,12 @@
 
 ## Purpose
 
-策略的目标不是预测顶部或底部，而是在用户已有港股持仓中划出受控的 Swing Position，并尝试利用价格区域完成卖出与买回。长期 Core Position 不参与常规波段交易。
+策略的目标不是预测顶部或底部，而是在用户已有港股持仓中划出受控的 Swing Position，并利用价格区域生成卖出与买回建议。长期 Core Position 不参与常规波段交易；项目不执行任何交易。
 
 ## Position roles
 
 - **Core Position**：长期持有的底仓。除非用户明确授权，否则不能卖出。
-- **Swing Position**：可以在 Resistance 附近分批卖出、在 Support 附近分批买回的仓位。
+- **Swing Position**：可以在 Resistance 附近获得分批卖出建议、在 Support 附近获得分批买回建议的仓位。
 - **Available cash**：可用于买回的现金。卖出所得是否可以再投资由 `swing_capital_source` 和 `reinvest_profit` 决定。
 
 ## Decision principles
@@ -29,7 +29,7 @@
 
 ## Forbidden behavior
 
-- 自动下单或假装已经成交。
+- 直接下单、直接卖出、直接买入或假装已经成交。
 - 将未经验证的市场价格、历史数据或费率当作事实。
 - 因为价格更低就无限补仓。
 - 用 Swing Position 弥补 Core Position 的亏损。
