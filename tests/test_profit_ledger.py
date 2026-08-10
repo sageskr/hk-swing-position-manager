@@ -65,6 +65,30 @@ class ProfitLedgerTests(unittest.TestCase):
         self.assertEqual(state.realized_profit_loss, Decimal("1727.170"))
         self.assertEqual(len(state.cash_ledger), 2)
 
+    def test_profit_repurchase_plan_calculates_extra_shares(self) -> None:
+        state = self.make_state()
+        state.update_holding(
+            average_cost="303.508",
+            cash_balance=0,
+            reason="test profit-funded repurchase",
+        )
+        plan = ProfitLedger.plan_profit_repurchase(
+            state,
+            sold_shares=10,
+            sell_price=500,
+            buy_price=400,
+            sale_transaction_cost=25,
+            estimated_buy_cost_per_share=5,
+            max_swing_shares=50,
+        )
+        self.assertEqual(plan["recommended_repurchase_shares"], 12)
+        self.assertEqual(plan["additional_shares"], 2)
+        self.assertEqual(plan["profit_funded_extra_shares"], 2)
+        self.assertEqual(plan["ending_swing_shares"], 47)
+        self.assertEqual(plan["estimated_net_profit"], "925")
+        self.assertEqual(plan["estimated_remaining_cash"], "115")
+        self.assertTrue(plan["investor_decision_required"])
+
     def test_buy_does_not_invent_existing_unknown_cost_basis(self) -> None:
         state = self.make_state()
         ProfitLedger.record_buy(

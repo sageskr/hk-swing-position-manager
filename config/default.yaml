@@ -9,6 +9,8 @@ strategy_config:
   swing_mode: hybrid
   sell_mode: adaptive
   buy_mode: progressive
+  execution_mode: manual
+  recommendation_price_mode: range
   reinvest_profit: true
 
 risk:

@@ -1,6 +1,6 @@
 # HK Swing Position Manager
 
-港股持仓波段交易决策辅助 Skill。它帮助用户把已有持仓拆分为长期 Core Position 与可交易 Swing Position，提供上涨分批卖出、下跌分批买回的建议，并比较交易成本与净收益。所有买入和卖出决定由投资人自行作出。
+港股持仓波段交易决策辅助 Skill。它帮助用户把已有持仓拆分为长期 Core Position 与可交易 Swing Position，使用价格区间提供上涨分批卖出、下跌分批买回的手动交易建议，并比较交易成本与净收益。所有买入和卖出决定由投资人自行作出。
 
 ## Skill 调用关键词
 
@@ -113,7 +113,26 @@ python -m pip install -e ".[dev]"
 
 ## 建议而非执行
 
-Sell Recommendation Ladder 和 Buy Recommendation Ladder 只表示价格区域与数量建议，不代表订单，也不代表已经成交。项目不包含券商 API、直接卖出、直接买入或自动下单接口；投资人需要自行判断、下单和记录实际成交结果。Profit Ledger 的实际成交调整只接受投资人提供的成交数据，不会替投资人执行交易。
+Sell Recommendation Ladder 和 Buy Recommendation Ladder 只表示价格区间与数量建议，不代表订单，也不代表已经成交。项目不包含券商 API、直接卖出、直接买入或自动下单接口；投资人需要自行判断、手动下单和记录实际成交结果。Profit Ledger 的实际成交调整只接受投资人提供的成交数据，不会替投资人执行交易。
+
+### 手动交易的区间规则
+
+本项目不再把某个单一价格当作必须执行的触发价。建议使用区间：
+
+```text
+SELL Zone: HK$490–498，建议售出 10 股
+BUY Zone:  HK$450–460，建议买入 10 股
+```
+
+区间含义是：
+
+- 价格进入区间后，投资人自行决定是否手动成交；
+- 区间上下界用于估算交易金额、费用和预期结果范围；
+- 不假设一定以区间中点成交，也不假设一定成交；
+- 价格跳过区间或未成交时，不更新持仓 State；
+- 实际成交价偏离建议区间时，记录偏差和风险提示，但仍以投资人提供的实际价格、股数、费用和时间更新 State、Cash Ledger 与 Profit Ledger。
+
+因此报告应优先展示 `price_range` 和 `execution_mode: manual`，而不是单一 `price`。
 
 ## 结论优先的报告格式
 
@@ -123,16 +142,20 @@ Sell Recommendation Ladder 和 Buy Recommendation Ladder 只表示价格区域�
 
 ```text
 Action: BUY
-建议购入：8 股，交易金额 HK$3,600，预计手续费 HK$18
-本次交易后预期净收益/亏损：HK$120
+手动买入区间：HK$450–460
+建议购入：8 股，预计交易金额 HK$3,600–3,680
+预计手续费：HK$18–20
+本次交易后预期净收益/亏损：按实际成交价重新计算
 ```
 
 或者：
 
 ```text
 Action: SELL
-建议售出：8 股，交易金额 HK$3,600，预计手续费 HK$18
-本次交易后预期收益/亏损：HK$120
+手动售出区间：HK$490–498
+建议售出：8 股，预计交易金额 HK$3,920–3,984
+预计手续费：HK$18–20
+本次交易后预期收益/亏损：按实际成交价重新计算
 ```
 
 如果没有明确交易机会：
@@ -226,6 +249,33 @@ state.save("state/0700.HK.json")
 
 售出记录会更新 `total_shares`、`current_swing_shares`、剩余成本基础、`cash_balance`、`realized_profit_loss` 和 `cash_ledger`。如果没有已知成本基础，单笔已实现盈亏会显示为无法计算，但售出股数和现金变化仍会记录。
 
+### 盈利后买回更多股票
+
+可以在实际成交前规划“售出后低价买回更多股数”，但规划不会执行订单：
+
+```python
+plan = ProfitLedger.plan_profit_repurchase(
+    state,
+    sold_shares=10,
+    sell_price=500,
+    buy_price=400,
+    sale_transaction_cost=25,
+    estimated_buy_cost_per_share=5,
+    max_swing_shares=50,
+)
+```
+
+规划结果会分别给出：
+
+```text
+recommended_repurchase_shares: 12
+additional_shares: 2
+profit_funded_extra_shares: 2
+estimated_net_profit: HK$925
+```
+
+只有投资人实际买回后，才使用 `record_repurchase()` 写入 State。额外股数还必须受现金、最大 Swing Position、费用和风险限制约束；没有可验证现金余额时不会猜测可买股数。
+
 ## V2 State 与 Profit Ledger 使用方式
 
 State 以 JSON 保存，金额使用字符串保存以避免浮点精度损失。核心 API 位于 `src/state.py` 和 `src/profit_ledger.py`：
@@ -289,6 +339,7 @@ position:
 - `max_capital_drawdown`：最大资金回撤比例。
 - `max_single_transaction_ratio`：单笔建议占 Swing Position 的上限；它不会触发任何订单。
 - `minimum_net_profit` 与 `minimum_profit_to_cost_ratio`：费用告警阈值。
+- `execution_mode`：固定为 `manual`；建议使用价格区间，成交后再根据实际成交数据更新账本。
 
 策略思想不能在未确认的情况下自行改变。
 
@@ -351,7 +402,7 @@ position:
 - 行情数据获取、数据校验与数据源适配
 - 趋势、动量、成交量和市场状态判定
 - 程序化支撑/阻力区域识别
-- 完整 Core/Swing 交易后的买卖阶梯和资金限制
+- 完整 Core/Swing 交易后的区间买卖阶梯、盈利增持分配和资金限制
 - FIFO/加权平均成本的完整可配置模型和复杂交易配对
 - Sell Recommendation Ladder、Buy Recommendation Ladder 和完整风险参数计算
 - Moomoo Singapore 最新费用加载与费用计算

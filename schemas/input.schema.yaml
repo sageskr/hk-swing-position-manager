@@ -45,6 +45,8 @@ properties:
       swing_mode: {type: string, enum: [fixed, hybrid, adaptive], default: hybrid}
       sell_mode: {type: string, enum: [fixed, adaptive], default: adaptive}
       buy_mode: {type: string, enum: [progressive, fixed], default: progressive}
+      execution_mode: {type: string, enum: [manual], default: manual}
+      recommendation_price_mode: {type: string, enum: [range], default: range}
       reinvest_profit: {type: boolean, default: true}
   risk:
     type: object

@@ -189,6 +189,95 @@ class ProfitLedger:
         return event
 
     @staticmethod
+    def plan_profit_repurchase(
+        state: PositionState,
+        *,
+        sold_shares: int,
+        sell_price: Any,
+        buy_price: Any,
+        sale_transaction_cost: Any = 0,
+        sale_slippage_cost: Any = 0,
+        estimated_buy_cost_per_share: Any = 0,
+        available_cash: Any | None = None,
+        max_swing_shares: int | None = None,
+    ) -> dict[str, Any]:
+        """Plan a manual repurchase and calculate profit-funded extra shares.
+
+        This method is deliberately side-effect free. It estimates how many
+        shares can be repurchased after a sale, then reports how many exceed
+        ``sold_shares``. Actual execution must still be reported through
+        :meth:`record_repurchase`.
+        """
+
+        sold_shares = _shares(sold_shares, "sold_shares")
+        if sold_shares > state.current_swing_shares:
+            raise LedgerError("cannot plan a sale larger than current Swing Position")
+        sell_price = _price(sell_price, "sell_price")
+        buy_price = _price(buy_price, "buy_price")
+        sale_cost = money(sale_transaction_cost)
+        sale_slippage = money(sale_slippage_cost)
+        buy_cost_per_share = money(estimated_buy_cost_per_share)
+        if sale_cost < 0 or sale_slippage < 0 or buy_cost_per_share < 0:
+            raise LedgerError("repurchase costs cannot be negative")
+        if max_swing_shares is not None:
+            if isinstance(max_swing_shares, bool) or max_swing_shares < 0:
+                raise LedgerError("max_swing_shares must be a non-negative integer")
+
+        cash = state.cash_balance if available_cash is None else money(available_cash)
+        if cash is None:
+            return {
+                "status": "unavailable",
+                "reason": "cash_balance is required to calculate repurchase capacity",
+                "sold_shares": sold_shares,
+                "recommended_repurchase_shares": 0,
+                "additional_shares": 0,
+            }
+        if cash < 0:
+            raise LedgerError("available_cash cannot be negative")
+
+        net_sale_proceeds = sold_shares * sell_price - sale_cost - sale_slippage
+        cash_after_sale = cash + net_sale_proceeds
+        unit_repurchase_cost = buy_price + buy_cost_per_share
+        affordable_shares = max(
+            0,
+            int(floor(cash_after_sale / unit_repurchase_cost)),
+        )
+        remaining_swing_after_sale = state.current_swing_shares - sold_shares
+        if max_swing_shares is None:
+            position_capacity = affordable_shares
+        else:
+            position_capacity = max(0, max_swing_shares - remaining_swing_after_sale)
+        recommended_shares = min(affordable_shares, position_capacity)
+        additional_shares = max(0, recommended_shares - sold_shares)
+        estimated_net_profit = net_sale_proceeds - sold_shares * unit_repurchase_cost
+        profit_capacity = max(
+            0,
+            int(floor(max(Decimal("0"), estimated_net_profit) / unit_repurchase_cost)),
+        )
+        profit_funded_extra_shares = min(additional_shares, profit_capacity)
+        cash_funded_extra_shares = additional_shares - profit_funded_extra_shares
+        ending_swing_shares = remaining_swing_after_sale + recommended_shares
+        remaining_cash = cash_after_sale - recommended_shares * unit_repurchase_cost
+        return {
+            "status": "recommended" if recommended_shares > 0 else "blocked",
+            "sold_shares": sold_shares,
+            "sell_price": str(sell_price),
+            "buy_price": str(buy_price),
+            "recommended_repurchase_shares": recommended_shares,
+            "additional_shares": additional_shares,
+            "profit_funded_extra_shares": profit_funded_extra_shares,
+            "cash_funded_extra_shares": cash_funded_extra_shares,
+            "ending_swing_shares": ending_swing_shares,
+            "net_sale_proceeds": str(net_sale_proceeds),
+            "unit_repurchase_cost": str(unit_repurchase_cost),
+            "estimated_net_profit": str(estimated_net_profit),
+            "estimated_remaining_cash": str(remaining_cash),
+            "max_swing_shares": max_swing_shares,
+            "execution_mode": "manual",
+            "investor_decision_required": True,
+        }
+
+    @staticmethod
     def record_repurchase(
         state: PositionState,
         *,

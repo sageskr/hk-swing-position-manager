@@ -6,6 +6,7 @@
 - Swing 仓位不得超过 `max_swing_position_ratio` 规定的组合/目标比例。
 - 买入总额不得超过可用现金与允许的卖出所得。
 - 单笔交易不得超过 `max_single_transaction_ratio`。
+- 每个手动建议使用价格区间；区间内实际成交仍由投资人决定，不能把区间边界或中点视为强制执行价。
 - Progressive Buy 必须满足价格越低股数不减少；无法满足资金限制时截断或取消后续层级。
 
 ## Trend filter

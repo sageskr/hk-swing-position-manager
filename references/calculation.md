@@ -4,19 +4,32 @@
 
 ## Ladder constraints
 
-Sell Recommendation Ladder（仅为建议，不是订单）：
+Sell Recommendation Ladder（仅为手动建议，不是订单）：
 
-- 2–4 个价格层级。
+- 2–4 个价格区间层级，每层记录 `lower` 和 `upper`。
+- 不把区间中点或边界当作必须成交的精确价格。
 - 所有数量来自 Swing Position。
 - 阻力越强或越接近目标区域，数量由市场状态与风险配置共同决定。
 - Bullish Breakout 时可减少、延迟或重新计算卖出层级。
 
-Progressive Buy Recommendation Ladder（仅为建议，不是订单）：
+Progressive Buy Recommendation Ladder（仅为手动建议，不是订单）：
 
-- 2–4 个价格层级。
-- 对按价格从高到低排序的层级，股数必须保持不减少。
-- 每层要记录目标价、股数、预计金额、费用、资金来源和触发条件。
+- 2–4 个价格区间层级，每层记录 `lower` 和 `upper`。
+- 对按区间上界从高到低排序的层级，股数必须保持不减少。
+- 每层要记录价格区间、股数、预计金额范围、费用范围、资金来源和触发条件。
 - 受现金、最大回撤、趋势过滤器、Swing 上限和破位保护约束。
+- 价格进入区间后由投资人自行判断是否手动成交；只有实际成交记录才更新 State 和 Ledger。
+- 售出价高于买回价时，先计算可负担的买回数量，再计算额外股数：
+
+```text
+net_sale_proceeds = sold_shares × sell_price - sale_costs
+unit_repurchase_cost = buy_price + estimated_buy_cost_per_share
+recommended_repurchase_shares = floor((available_cash + net_sale_proceeds) / unit_repurchase_cost)
+additional_shares = max(0, recommended_repurchase_shares - sold_shares)
+```
+
+- `additional_shares` 必须同时受最大 Swing Position 限制；只有实际买回后才更新 `current_swing_shares`。
+- `profit_funded_extra_shares` 只表示由费用后价差利润可覆盖的额外股数，不表示已经成交。
 
 ## Position accounting
 
@@ -46,7 +59,7 @@ Gross Profit = sell proceeds - repurchase cost
 Net Profit = Gross Profit - all applicable transaction costs - slippage
 ```
 
-实际持仓成本、税务处理和费用归属可能需要用户选择模型，报告必须声明所用假设。
+实际持仓成本、税务处理和费用归属可能需要用户选择模型，报告必须声明所用假设。手动区间建议只能给出交易金额、费用和净结果的范围；成交后必须以实际成交价重新计算，不能按区间中点结算。
 
 ## Backtest contract
 

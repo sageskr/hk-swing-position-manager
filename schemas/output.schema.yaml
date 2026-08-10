@@ -197,7 +197,7 @@ $defs:
       sources: {type: array, items: {type: string}}
   trade_recommendation:
     type: object
-    required: [status, shares, gross_value, estimated_transaction_cost, currency]
+    required: [status, shares, gross_value, estimated_transaction_cost, currency, price_range, execution_mode]
     properties:
       side: {type: string, enum: [buy, sell]}
       status: {type: string, const: recommended}
@@ -205,7 +205,18 @@ $defs:
       gross_value: {type: [number, "null"], minimum: 0}
       estimated_transaction_cost: {type: [number, "null"], minimum: 0}
       currency: {type: string, const: HKD}
+      price_range: {$ref: "#/$defs/price_range"}
+      execution_mode: {type: string, const: manual}
       trigger: {type: string}
+      note: {type: string}
+  price_range:
+    type: object
+    description: "Manual execution zone; actual execution price must be reported separately."
+    required: [lower, upper]
+    properties:
+      lower: {type: number, exclusiveMinimum: 0}
+      upper: {type: number, exclusiveMinimum: 0}
+      currency: {type: string, const: HKD}
       note: {type: string}
   net_result:
     type: object
@@ -217,13 +228,18 @@ $defs:
       note: {type: string}
   recommendation_level:
     type: object
-    required: [price, shares, status]
+    required: [price_range, shares, status, execution_mode]
     properties:
-      price: {type: number, exclusiveMinimum: 0}
+      price_range: {$ref: "#/$defs/price_range"}
       shares: {type: integer, minimum: 0}
       trigger: {type: string}
       estimated_cost: {type: number, minimum: 0}
+      estimated_net_profit: {type: [number, "null"]}
+      estimated_remaining_cash: {type: [number, "null"], minimum: 0}
+      additional_shares: {type: integer, minimum: 0}
+      profit_funded_extra_shares: {type: integer, minimum: 0}
       status: {type: string, enum: [recommended, blocked, unavailable]}
+      execution_mode: {type: string, const: manual}
       investor_decision_required: {type: boolean, const: true}
   scenario:
     type: object

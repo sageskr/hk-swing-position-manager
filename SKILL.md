@@ -54,7 +54,7 @@ hkswing 分析 Tencent 0700.HK，先给结论。
 
 1. Core Position 优先保护，任何交易后必须满足 `core_shares >= minimum_core_shares`。
 2. 只有 Swing Position 可以正常进行波段交易。
-3. 接近 Resistance 时分批卖出，接近 Support 时分批买入。
+3. 接近 Resistance Zone 时分批卖出，接近 Support Zone 时分批买入；所有触发条件使用价格区间，不使用必须成交的单一精确价格。
 4. 价格越低，原则上买入股数越多；但 Progressive Buying 必须受资金、趋势和风险限制。
 5. 重大 Support Breakdown 后停止机械补仓。
 6. 强势 Bullish Breakout 时减少、延迟或重新计算卖出建议，不机械建议清空 Swing Position。
@@ -74,11 +74,13 @@ hkswing 分析 Tencent 0700.HK，先给结论。
 7. 对每轮已完成交易计算 commission、platform fee、stamp duty、trading fee、transaction levy、settlement fee、GST、滑点和其他适用费用，并更新 Profit Reserve。
 8. 只有在 Buy Zone、Trend Filter、Support Breakdown 和风险限制都允许时，才评估 Profit Reinvestment；Reserve 达标不等于必须买入。
 9. 用户提供实际成交数据或人工 Reserve 调整时，重新计算并写入 Audit Trail。
-10. 在通过上述约束后，再生成 2–4 层 Sell Recommendation Ladder 和 Buy Recommendation Ladder；这些层级只能作为建议，不能作为订单执行指令。
-11. 输出 Gross Profit、Transaction Cost、Net Profit、Cost Ratio、Minimum Effective Spread，并按阈值发出告警。
-12. 输出 Profit Status、Profit Generated Shares、Profit Reserve 和 Audit Trail 状态。
-13. 生成 Bull、Base、Bear 三种情景，每个情景必须包含 trigger、expected behavior、recommended action 和 risk。
-14. 按固定顺序输出报告，并在最后给出简洁的 `WAIT / BUY / SELL / HOLD` 建议；其中 BUY/SELL 仅表示建议，不代表已成交。
+10. 在通过上述约束后，再生成 2–4 层 Sell Recommendation Ladder 和 Buy Recommendation Ladder；每层必须提供 `price_range.lower` 与 `price_range.upper`，这些层级只能作为手动执行建议，不能作为订单执行指令。
+11. 对每个售出/买回价格区间分别计算建议股数；当售出价高于买回价且费用后仍有利润时，计算 `additional_shares` 与 `profit_funded_extra_shares`，并受现金和最大 Swing Position 限制。
+12. 对价格区间计算交易金额、费用和净结果的上下界；实际成交后只能使用投资人提供的成交价更新 State 和 Ledger。
+13. 输出 Gross Profit、Transaction Cost、Net Profit、Cost Ratio、Minimum Effective Spread，并按阈值发出告警。
+14. 输出 Profit Status、Profit Generated Shares、Profit Reserve 和 Audit Trail 状态。
+15. 生成 Bull、Base、Bear 三种情景，每个情景必须包含 trigger、expected behavior、recommended action 和 risk。
+16. 按固定顺序输出报告，并在最后给出简洁的 `WAIT / BUY / SELL / HOLD` 建议；其中 BUY/SELL 仅表示建议，不代表已成交。
 
 ## Conclusion-first output
 
@@ -108,6 +110,8 @@ Action: HOLD / WAIT
 
 不适用的操作不得输出数量、交易金额或手续费，必须明确写“不建议”或“无法计算”。结论中的 BUY/SELL 仅是建议，必须注明 `investor_decision_required: true` 和 `order_submitted: false`。
 
+所有价格建议必须以区间表达，例如 `HK$490–498`，不得把某个单一价格描述为必须执行的触发价。手动交易规则：价格进入区间后由投资人自行决定是否成交；未成交不更新 State，成交后以投资人报告的实际成交价、股数和费用更新 State、Cash Ledger 与 Profit Ledger。若价格跳过区间、只在区间内短暂波动或实际成交价偏离区间，必须标记偏差并使用实际数据重新计算，不得假设按区间中点成交。
+
 ## Output order
 
 1. Conclusion
@@ -124,6 +128,18 @@ Action: HOLD / WAIT
 12. Bull / Base / Bear
 13. Risk Warning
 14. Final Recommendation
+
+## Manual range-based execution
+
+本 Skill 面向手动买入和卖出。价格区间是观察和决策范围，不是精确订单价，也不是系统执行条件：
+
+- SELL：价格进入 Resistance Zone 后，按建议股数和风险限制由投资人自行决定是否售出。
+- BUY：价格进入 Support Zone 后，按建议股数和资金限制由投资人自行决定是否买入。
+- 区间上下界用于估算金额、费用和净结果范围；不能用区间中点替代实际成交价。
+- 售出后低价买回更多股票时，先计算 `recommended_repurchase_shares`、`additional_shares` 和 `profit_funded_extra_shares`，但不把建议当作成交。
+- 只有投资人报告已成交，才调用 `record_sale()`、`record_buy()` 或 `record_repurchase()` 更新本地状态。
+- 报告必须同时显示 `price_range`、`execution_mode: manual`、触发条件和“实际成交后再更新”的说明。
+- 当前结论仍然只允许一个 `BUY`、`SELL`、`HOLD` 或 `WAIT` 动作；不能因为同时存在上下行情景而同时给出买入和售出执行建议。
 
 ## Holding valuation and State updates
 
