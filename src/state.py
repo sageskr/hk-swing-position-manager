@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, Mapping
@@ -361,17 +362,123 @@ class PositionState:
             cash_ledger=[dict(item) for item in raw.get("cash_ledger", [])],
         )
 
-    def save(self, path: str | Path) -> None:
-        """Persist state as human-readable JSON without external dependencies."""
+    # ------------------------------------------------------------------
+    # Checksum helpers (SHA-256 over canonical JSON, stable key order)
+    # ------------------------------------------------------------------
 
-        destination = Path(path)
+    _CHECKSUM_KEY = "_checksum"
+
+    @staticmethod
+    def _compute_checksum(data: dict[str, Any]) -> str:
+        """Return hex digest of the canonical JSON bytes (sorted keys)."""
+
+        payload = json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _verify_checksum(data: dict[str, Any]) -> bool:
+        """Return ``True`` if the embedded checksum matches, ``False`` if missing.
+
+        Raises :class:`StateValidationError` when the checksum is present but
+        incorrect (tampered file).  The caller is responsible for removing the
+        ``_checksum`` key from *data* before passing it to :meth:`from_dict`.
+        """
+
+        stored = data.get(PositionState._CHECKSUM_KEY)
+        if stored is None:
+            return False
+        # Compare against the canonical payload *excluding* the checksum field.
+        payload = {k: v for k, v in data.items() if k != PositionState._CHECKSUM_KEY}
+        expected = PositionState._compute_checksum(payload)
+        if not isinstance(stored, str) or stored != expected:
+            raise StateValidationError(
+                "State checksum mismatch — the file may have been tampered with."
+            )
+        return True
+
+    # ------------------------------------------------------------------
+    # Secure persistence with path-traversal protection and checksums
+    # ------------------------------------------------------------------
+
+    _DEFAULT_STATE_DIR = Path("state")
+
+    @staticmethod
+    def _resolve_safe(directory: Path, filename: str | Path) -> Path:
+        """Resolve *filename* under *directory* and refuse path-traversal.
+
+        1. Resolves the canonical ``directory`` once.
+        2. Joins the *filename* (which must be a relative path).
+        3. Resolves the combined path and checks it is still inside *directory*.
+
+        Raises :class:`StateValidationError` on escape attempts or absolute
+        paths.
+        """
+
+        base = directory.resolve()
+        candidate = Path(filename)
+        if candidate.is_absolute():
+            raise StateValidationError(
+                f"state file path must be relative, got: {filename!r}"
+            )
+        full = (base / candidate).resolve()
+        try:
+            full.relative_to(base)
+        except ValueError:
+            raise StateValidationError(
+                f"state file path escapes base directory {base}: {filename!r}"
+            )
+        return full
+
+    def save(
+        self,
+        path: str | Path,
+        base_dir: str | Path | None = None,
+    ) -> None:
+        """Persist state as human-readable JSON with an integrity checksum.
+
+        The file is written under *base_dir* (default ``state/``). *path* must
+        be a relative path; absolute paths and traversal escapes are rejected.
+        """
+
+        directory = Path(base_dir) if base_dir is not None else self._DEFAULT_STATE_DIR
+        destination = self._resolve_safe(directory, path)
         destination.parent.mkdir(parents=True, exist_ok=True)
+
+        data = self.to_dict()
+        # Embed checksum after serialisation so it covers the real payload.
+        checksum = self._compute_checksum(data)
+        data[self._CHECKSUM_KEY] = checksum
+
         destination.write_text(
-            json.dumps(self.to_dict(), ensure_ascii=False, indent=2) + "\n",
+            json.dumps(data, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
 
     @classmethod
-    def load(cls, path: str | Path) -> "PositionState":
-        source = Path(path)
-        return cls.from_dict(json.loads(source.read_text(encoding="utf-8")))
+    def load(
+        cls,
+        path: str | Path,
+        base_dir: str | Path | None = None,
+    ) -> "PositionState":
+        """Load state from JSON and verify its integrity checksum if present.
+
+        *path* must be relative to *base_dir* (default ``state/``).
+        Absolute paths and traversal escapes are rejected.  Old state files
+        without a checksum are accepted but a warning is recorded in the audit
+        trail.
+        """
+
+        directory = Path(base_dir) if base_dir is not None else cls._DEFAULT_STATE_DIR
+        source = cls._resolve_safe(directory, path)
+        raw = json.loads(source.read_text(encoding="utf-8"))
+        had_checksum = cls._verify_checksum(raw)
+        # Remove the checksum key before constructing the state object.
+        raw.pop(cls._CHECKSUM_KEY, None)
+        state = cls.from_dict(raw)
+        if not had_checksum:
+            state.record_audit(
+                "state_loaded_without_checksum",
+                path=str(path),
+                note="Old or manually-created state file — consider re-saving to add integrity protection.",
+            )
+        return state

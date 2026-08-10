@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -70,9 +71,8 @@ class PositionStateTests(unittest.TestCase):
             "realized_profit_loss": "500",
         })
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "state.json"
-            state.save(path)
-            restored = PositionState.load(path)
+            state.save("state.json", base_dir=directory)
+            restored = PositionState.load("state.json", base_dir=directory)
         self.assertEqual(restored.cash_balance, 1000)
         self.assertEqual(restored.cash_ledger[0]["id"], "sale-1")
 
@@ -80,12 +80,60 @@ class PositionStateTests(unittest.TestCase):
         state = self.make_state()
         state.apply_reserve_adjustment("310.50", "test")
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "state.json"
-            state.save(path)
-            restored = PositionState.load(path)
+            state.save("state.json", base_dir=directory)
+            restored = PositionState.load("state.json", base_dir=directory)
         self.assertEqual(restored.ticker, "0700.HK")
         self.assertEqual(restored.profit_reserve, state.profit_reserve)
         self.assertEqual(restored.profit_reserve_adjustments, state.profit_reserve_adjustments)
+
+    def test_checksum_protects_against_tampering(self) -> None:
+        state = self.make_state()
+        with tempfile.TemporaryDirectory() as directory:
+            state.save("state.json", base_dir=directory)
+            filepath = Path(directory) / "state.json"
+            # Tamper with the file
+            raw = filepath.read_text(encoding="utf-8")
+            raw = raw.replace('"0700.HK"', '"9999.HK"')
+            filepath.write_text(raw, encoding="utf-8")
+            with self.assertRaises(StateValidationError) as ctx:
+                PositionState.load("state.json", base_dir=directory)
+            self.assertIn("checksum", str(ctx.exception))
+
+    def test_old_state_without_checksum_still_loads(self) -> None:
+        """Backward-compat: pre-checksum files load with a warning in audit trail."""
+        state = self.make_state()
+        with tempfile.TemporaryDirectory() as directory:
+            # Write state *without* the checksum field (simulating old file)
+            data = state.to_dict()
+            filepath = Path(directory) / "state.json"
+            filepath.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            restored = PositionState.load("state.json", base_dir=directory)
+        self.assertEqual(restored.ticker, "0700.HK")
+        self.assertTrue(
+            any(
+                entry["action"] == "state_loaded_without_checksum"
+                for entry in restored.audit_trail
+            ),
+            "Expected a 'state_loaded_without_checksum' audit entry",
+        )
+
+    def test_absolute_path_is_rejected(self) -> None:
+        state = self.make_state()
+        with tempfile.TemporaryDirectory() as directory:
+            filepath = Path(directory) / "state.json"
+            with self.assertRaises(StateValidationError) as ctx:
+                state.save(str(filepath), base_dir=directory)
+            self.assertIn("relative", str(ctx.exception))
+
+    def test_path_traversal_is_rejected(self) -> None:
+        state = self.make_state()
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(StateValidationError) as ctx:
+                state.save("../../../escape.json", base_dir=directory)
+            self.assertIn("escapes", str(ctx.exception))
 
 
 if __name__ == "__main__":
